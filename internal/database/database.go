@@ -13,11 +13,11 @@ func InitDB(dbConfig *config.DBConfig) (pool *pgxpool.Pool, err error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse connection string  %s")
+		return nil, fmt.Errorf("unable to parse connection string  %s", err)
 	}
 	pool, err = pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
-		return nil, fmt.Errorf("unable to ")
+		return nil, fmt.Errorf("unable to %w", err)
 	}
 	return pool, err
 }
