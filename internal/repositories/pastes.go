@@ -18,5 +18,5 @@ func NewPasteRepository(db *pgxpool.Pool) *PasteRepository {
 }
 
 func (p *PasteRepository) CreatePaste(ctx context.Context, pasteInput *models.PasteInput) error {
-sql :=`INSERT `
+sql :=`INSERT INTO pastes `
 }

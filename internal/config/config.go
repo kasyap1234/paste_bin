@@ -6,4 +6,3 @@ type DBConfig struct {
 	User string 
 	Password string 
 	UseSSl bool 
-}
