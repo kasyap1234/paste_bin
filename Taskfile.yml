@@ -1,0 +1,91 @@
+version: '3'
+
+vars:
+  # Shared DB config (used to build the connection string)
+  DB_USER: postgres
+  DB_PASSWORD: postgres
+  DB_NAME: sample_db
+  DB_HOST: localhost
+  DB_PORT: 5432
+
+  # Goose config
+  GOOSE_DRIVER: postgres
+  GOOSE_MIGRATIONS_DIR: db/migrations
+  # Standard Postgres URL format
+  GOOSE_DB_STRING: "postgres://{{.DB_USER}}:{{.DB_PASSWORD}}@{{.DB_HOST}}:{{.DB_PORT}}/{{.DB_NAME}}?sslmode=disable"
+
+tasks:
+  # Ensure the migrations directory exists
+  init-migrations-dir:
+    desc: Create the migrations directory if it does not exist
+    cmds:
+      - mkdir -p {{.GOOSE_MIGRATIONS_DIR}}
+
+  # Create a new migration with given name:
+  # usage: task migrate:create name=create_users_table
+  migrate:create:
+    desc: Create a new Goose migration
+    deps: [init-migrations-dir]
+    vars:
+      NAME: '{{.name}}'
+    cmds:
+      - |
+        if [ -z "{{.NAME}}" ]; then
+          echo "Error: migration name is required. Usage: task migrate:create name=create_users_table"
+          exit 1
+        fi
+      - goose -s -dir {{.GOOSE_MIGRATIONS_DIR}} create {{.NAME}} sql
+    silent: false
+
+  # Apply all up migrations
+  migrate:up:
+    desc: Run all pending Goose migrations up
+    cmds:
+      - goose -dir {{.GOOSE_MIGRATIONS_DIR}} {{.GOOSE_DRIVER}} "{{.GOOSE_DB_STRING}}" up
+    silent: false
+
+  # Roll back the last migration step
+  migrate:down:
+    desc: Roll back the last Goose migration
+    cmds:
+      - goose -dir {{.GOOSE_MIGRATIONS_DIR}} {{.GOOSE_DRIVER}} "{{.GOOSE_DB_STRING}}" down
+    silent: false
+
+  # Roll back all migrations (use with care)
+  migrate:reset:
+    desc: Roll back all migrations (down to 0)
+    cmds:
+      - goose -dir {{.GOOSE_MIGRATIONS_DIR}} {{.GOOSE_DRIVER}} "{{.GOOSE_DB_STRING}}" reset
+    silent: false
+
+  # Show migration status
+  migrate:status:
+    desc: Show Goose migration status
+    cmds:
+      - goose -dir {{.GOOSE_MIGRATIONS_DIR}} {{.GOOSE_DRIVER}} "{{.GOOSE_DB_STRING}}" status
+    silent: false
+
+  # Convenience: wait for DB to be ready (useful with Docker)
+  db:wait:
+    desc: Wait until Postgres is ready to accept connections
+    cmds:
+      - |
+        echo "Waiting for Postgres at {{.DB_HOST}}:{{.DB_PORT}}..."
+        for i in $(seq 1 60); do
+          if pg_isready -h {{.DB_HOST}} -p {{.DB_PORT}} -U {{.DB_USER}} > /dev/null 2>&1; then
+            echo "Postgres is ready."
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Postgres not ready after 60 seconds."
+        exit 1
+    silent: false
+
+  # Run migrations against Docker compose DB (assumes service name postgres and network name)
+  migrate:up:docker:
+    desc: Run migrations up against the docker-compose Postgres
+    cmds:
+      - task db:wait
+      - goose -dir {{.GOOSE_MIGRATIONS_DIR}} {{.GOOSE_DRIVER}} "{{.GOOSE_DB_STRING}}" up
+    silent: false

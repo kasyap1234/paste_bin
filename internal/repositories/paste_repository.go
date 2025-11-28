@@ -1,0 +1,98 @@
+package repositories
+
+import (
+	"context"
+	"fmt"
+	"pastebin/internal/models"
+	"pastebin/pkg/utils"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type PasteRepository struct {
+	db *pgxpool.Pool
+}
+
+func NewPasteRepository(db *pgxpool.Pool) *PasteRepository {
+	return &PasteRepository{
+		db: db,
+	}
+}
+
+func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pasteInput *models.PasteInput) error {
+	query := `INSERT INTO pastes (user_id,title,is_private,content,language,url) VALUES ($1,$2,$3,$4,$5,$6)`
+	title := pasteInput.Title
+	if title == "" {
+		title = "Untitled"
+	}
+	urlSlug := uuid.New().String()[:8]
+	var isPrivate bool
+	url := "https://pastebin.com/" + urlSlug
+	if pasteInput.Password == "" {
+		isPrivate = false
+	} else {
+		isPrivate = true
+	}
+	language := pasteInput.Language
+	content := pasteInput.Content
+	tx, err := p.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url)
+	if err != nil {
+		return fmt.Errorf("failed to insert paste: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}
+
+func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, patchInput *models.PatchPaste) error {
+	sets, values, nextIndex := utils.BuildSets(patchInput)
+	if len(sets) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+	values = append(values, pasteID)
+	query := fmt.Sprintf(`UPDATE pastes SET %s ,updated_at=NOW() WHERE id=$%d`, strings.Join(sets, ","), nextIndex)
+	tx, err := p.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction : %w", err)
+	}
+	defer tx.Rollback(ctx)
+	cmdTag, err := tx.Exec(ctx, query, values...)
+	if err != nil {
+		return fmt.Errorf("failed to udpate paste: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("paste not found with id : %s", pasteID.String())
+
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction : %w", err)
+
+	}
+	return nil
+}
+
+func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (*models.PasteOutput, error) {
+	query := `SELECT * FROM pastes WHERE id=$1`
+	row, err := p.db.Query(ctx, query, pasteID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("no pastes with pasteID=%s", pasteID)
+		}
+		return nil, fmt.Errorf("failed to query paste: %w", err)
+	}
+	paste, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[models.PasteOutput])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect paste: %w", err)
+	}
+	return &paste, nil
+}
