@@ -13,10 +13,28 @@ type AuthHandler struct {
 }
 
 func (h *AuthHandler) Register(c echo.Context) error {
-	var RegisterInput *models.RegisterInput
+	var RegisterInput models.RegisterInput
 	if err := c.Bind(RegisterInput); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
 	}
 	ctx := c.Request().Context()
-	return h.authSvc.Register(ctx, RegisterInput)
+	if err := h.authSvc.Register(ctx, &RegisterInput); err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to register"})
+
+	}
+	return c.JSON(http.StatusCreated)
+}
+
+func (h *AuthHandler) Login(c echo.Context) error {
+	var loginInput models.LoginInput
+	if err := c.Bind(loginInput); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
+	}
+	ctx := c.Request().Context()
+	resp, err := h.authSvc.Login(ctx, &loginInput)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "unauthorized "})
+
+	}
+	return c.JSON(http.StatusOK, resp)
 }
