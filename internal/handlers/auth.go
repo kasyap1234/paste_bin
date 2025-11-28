@@ -22,7 +22,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to register"})
 
 	}
-	return c.JSON(http.StatusCreated)
+	return c.JSON(http.StatusCreated, echo.Map{"error": "user registered"})
 }
 
 func (h *AuthHandler) Login(c echo.Context) error {
