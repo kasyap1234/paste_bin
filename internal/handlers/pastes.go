@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
 
@@ -44,4 +45,12 @@ func (p *PasteHandler) UpdatePaste(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "paste updated "})
 
+}
+
+func (p *PasteHandler) ListAllPastes(c echo.Context) error {
+	userID, err := auth.GetUserIDFromContext(c)
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "unable to get userID "})
+	}
+	
 }
