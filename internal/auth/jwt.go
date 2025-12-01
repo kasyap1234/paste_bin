@@ -1,110 +1,86 @@
 package auth
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-// StandardClaims represents the standard JWT claims
-type StandardClaims struct {
-	ExpiresAt int64 `json:"exp"`
-	IssuedAt  int64 `json:"iat"`
-}
-
-// Claims represents the JWT claims
+// Claims represents the JWT payload used by the application.
 type Claims struct {
 	UserID uuid.UUID `json:"user_id"`
 	Email  string    `json:"email"`
-	StandardClaims
+	jwt.RegisteredClaims
 }
 
+// JWTManager handles creation and verification of JWT tokens.
 type JWTManager struct {
-	secretKey string
+	secretKey []byte
 }
 
+// NewJWTManager constructs a JWTManager. secretKey should be a sufficiently long random string.
 func NewJWTManager(secretKey string) *JWTManager {
-	return &JWTManager{secretKey: secretKey}
+	return &JWTManager{
+		secretKey: []byte(secretKey),
+	}
 }
 
-// GenerateToken creates a new JWT token
+// GenerateToken creates a signed JWT containing the user's ID and email.
+// expirationTime is a duration from now after which the token is invalid.
 func (j *JWTManager) GenerateToken(userID uuid.UUID, email string, expirationTime time.Duration) (string, error) {
+	if len(j.secretKey) == 0 {
+		return "", errors.New("jwt secret key is empty")
+	}
 	now := time.Now()
 	claims := Claims{
 		UserID: userID,
 		Email:  email,
-		StandardClaims: StandardClaims{
-			ExpiresAt: now.Add(expirationTime).Unix(),
-			IssuedAt:  now.Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expirationTime)),
+			ID:        uuid.NewString(), // jti
 		},
 	}
 
-	// Create header
-	header := map[string]string{
-		"alg": "HS256",
-		"typ": "JWT",
-	}
-
-	headerJSON, err := json.Marshal(header)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(j.secretKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal header: %w", err)
+		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
-	claimsJSON, err := json.Marshal(claims)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal claims: %w", err)
-	}
-
-	headerEncoded := base64.RawURLEncoding.EncodeToString(headerJSON)
-	claimsEncoded := base64.RawURLEncoding.EncodeToString(claimsJSON)
-
-	signature := j.createSignature(headerEncoded + "." + claimsEncoded)
-
-	return headerEncoded + "." + claimsEncoded + "." + signature, nil
+	return signed, nil
 }
 
-// VerifyToken verifies and extracts claims from a JWT token
-func (j *JWTManager) VerifyToken(token string) (*Claims, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return nil, errors.New("invalid token format")
+// VerifyToken parses and validates a token string and returns the Claims if valid.
+func (j *JWTManager) VerifyToken(tokenStr string) (*Claims, error) {
+	if tokenStr == "" {
+		return nil, errors.New("token is empty")
+	}
+	if len(j.secretKey) == 0 {
+		return nil, errors.New("jwt secret key is empty")
 	}
 
-	// Verify signature
-	message := parts[0] + "." + parts[1]
-	expectedSignature := j.createSignature(message)
-
-	if !hmac.Equal([]byte(parts[2]), []byte(expectedSignature)) {
-		return nil, errors.New("invalid signature")
-	}
-
-	// Decode claims
-	claimsJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+	claims := &Claims{}
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Name}))
+	_, err := parser.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+		// ensure signing method
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return j.secretKey, nil
+	})
 	if err != nil {
-		return nil, errors.New("invalid claims encoding")
+		return nil, fmt.Errorf("failed to parse token: %w", err)
 	}
 
-	var claims Claims
-	if err := json.Unmarshal(claimsJSON, &claims); err != nil {
-		return nil, errors.New("invalid claims")
+	// Explicitly validate expiration time. The jwt library's RegisteredClaims.Valid
+	// method signature/behavior can vary between versions, so perform the expiration
+	// check directly to avoid depending on that helper.
+	if claims.ExpiresAt != nil && time.Now().After(claims.ExpiresAt.Time) {
+		return nil, fmt.Errorf("token expired")
 	}
 
-	// Check expiration
-	if time.Now().Unix() > claims.ExpiresAt {
-		return nil, errors.New("token expired")
-	}
-
-	return &claims, nil
-}
-
-func (j *JWTManager) createSignature(message string) string {
-	h := hmac.New(sha256.New, []byte(j.secretKey))
-	h.Write([]byte(message))
-	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	return claims, nil
 }
