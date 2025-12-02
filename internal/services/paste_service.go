@@ -55,5 +55,8 @@ func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (*mo
 
 
 func(p*PasteService)GetAllPastes(ctx context.Context,userID uuid.UUID)(*[]models.PasteOutput,error){
+	// check if user exists or not 
+	
 	pastes,err :=p.pasteRepo.GetAllPastes(ctx,userID)
+	return pastes,nil 
 }

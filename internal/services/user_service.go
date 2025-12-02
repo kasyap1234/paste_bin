@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"pastebin/internal/repositories"
 )
 
@@ -13,3 +14,6 @@ func NewUserService(userRepo *repositories.UserRepository) *UserService {
 		userRepo: userRepo,
 	}
 }
+
+
+func(u*UserService)CheckUserExists(ctx context.Context,userID)
