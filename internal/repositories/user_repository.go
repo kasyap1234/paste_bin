@@ -59,6 +59,3 @@ func (u *UserRepository) ExistsUser(ctx context.Context, email string) (bool, er
 	return true, nil
 }
 
-func(u*UserRepository)CheckUserByUserID(ctx context.Context,userID uuid.UUID)(bool,error){
-	_,err :=
-}
