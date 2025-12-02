@@ -96,3 +96,19 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (
 	}
 	return &paste, nil
 }
+
+func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
+	sql := `SELECT * FROM pastes WHERE user_id=$1`
+	row, err := p.db.Query(ctx, sql, userID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("no pastes found for userID : %s", userID)
+		}
+		return nil, fmt.Errorf("failed to get pastes for user ID : %s", userID)
+	}
+	pastes, err := pgx.CollectRows(row, pgx.RowToStructByName[models.PasteOutput])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect pastes ", err)
+	}
+	return &pastes, nil
+}
