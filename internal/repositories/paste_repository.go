@@ -108,7 +108,7 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*
 	}
 	pastes, err := pgx.CollectRows(row, pgx.RowToStructByName[models.PasteOutput])
 	if err != nil {
-		return nil, fmt.Errorf("failed to collect pastes ", err)
+		return nil, fmt.Errorf("failed to collect pastes :  %w", err)
 	}
 	return &pastes, nil
 }

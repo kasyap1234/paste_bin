@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -8,9 +9,17 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-var userIDKey string
-var userEmailKey string
+// ContextKey is a typed key for storing values in context.Context to avoid collisions.
+type ContextKey string
 
+const (
+	userIDCtxKey    ContextKey = "userID"
+	userEmailCtxKey ContextKey = "userEmail"
+)
+
+// AuthMiddleware validates the Authorization header using the provided JWTManager.
+// On success it injects the user's ID and email into the request's context.Context
+// using typed context keys. It does NOT use echo.Context's Set/Get map.
 func AuthMiddleware(jwtManager *JWTManager) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -18,53 +27,94 @@ func AuthMiddleware(jwtManager *JWTManager) echo.MiddlewareFunc {
 			if err != nil {
 				return echo.NewHTTPError(401, "missing or invalid authorization")
 			}
+
 			claims, err := jwtManager.VerifyToken(token)
 			if err != nil {
 				return echo.NewHTTPError(401, "invalid token")
 			}
-			c.Set(string(userIDKey), claims.UserID)
-			c.Set(string(userEmailKey), claims.Email)
+
+			// Put values into the request's context.Context using typed keys.
+			req := c.Request()
+			ctx := context.WithValue(req.Context(), userIDCtxKey, claims.UserID)
+			ctx = context.WithValue(ctx, userEmailCtxKey, claims.Email)
+			c.SetRequest(req.WithContext(ctx))
+
 			return next(c)
 		}
 	}
 }
 
+// extractToken extracts a bearer token from an Authorization header value.
 func extractToken(authHeader string) (string, error) {
 	if authHeader == "" {
-		return "", errors.New("auth Header missing")
+		return "", errors.New("auth header missing")
 	}
 	const bearerPrefix = "Bearer "
 	if !strings.HasPrefix(authHeader, bearerPrefix) {
-		return "", errors.New("authorization scheme must be bearer")
+		return "", errors.New("authorization scheme must be Bearer")
 	}
-	tokenParts := strings.Split(authHeader, " ")
-	if len(tokenParts) != 2 {
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || parts[1] == "" {
 		return "", errors.New("authorization header format wrong")
 	}
-	token := tokenParts[1]
-	return token, nil
+	return parts[1], nil
 }
 
-func GetUserIDFromContext(c echo.Context) (uuid.UUID, error) {
-	userID := c.Get(string(userIDKey))
-	if userID == nil {
+// GetUserIDFromContext reads the user ID from a standard context.Context.
+// Returns uuid.Nil with an error if the value is missing or has the wrong type.
+func GetUserIDFromContext(ctx context.Context) (uuid.UUID, error) {
+	if ctx == nil {
+		return uuid.Nil, errors.New("context is nil")
+	}
+	val := ctx.Value(userIDCtxKey)
+	if val == nil {
 		return uuid.Nil, errors.New("user id not found in context")
 	}
-	id, ok := userID.(uuid.UUID)
+	id, ok := val.(uuid.UUID)
 	if !ok {
-		return uuid.Nil, errors.New("invalid user id type")
+		// Sometimes IDs might be stored as strings by other code; try parsing.
+		if s, sok := val.(string); sok {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return uuid.Nil, errors.New("user id in context has invalid string format")
+			}
+			return parsed, nil
+		}
+		return uuid.Nil, errors.New("user id in context has unexpected type")
 	}
 	return id, nil
 }
 
-func GetUserEmailFromContext(c echo.Context) (string, error) {
-	userEmail := c.Get(string(userEmailKey))
-	if userEmail == nil {
-		return "", errors.New("email nto found in the context")
+// GetUserEmailFromContext reads the user email from a standard context.Context.
+func GetUserEmailFromContext(ctx context.Context) (string, error) {
+	if ctx == nil {
+		return "", errors.New("context is nil")
 	}
-	email, ok := userEmail.(string)
+	val := ctx.Value(userEmailCtxKey)
+	if val == nil {
+		return "", errors.New("user email not found in context")
+	}
+	email, ok := val.(string)
 	if !ok {
-		return "", errors.New("invalid user email type ")
+		return "", errors.New("user email in context has unexpected type")
 	}
 	return email, nil
+}
+
+// GetUserIDFromEchoContext reads the user ID from an echo.Context by delegating to the
+// request's context.Context. It is a convenience wrapper for handler code.
+func GetUserIDFromEchoContext(c echo.Context) (uuid.UUID, error) {
+	if c == nil || c.Request() == nil {
+		return uuid.Nil, errors.New("echo context or request is nil")
+	}
+	return GetUserIDFromContext(c.Request().Context())
+}
+
+// GetUserEmailFromEchoContext reads the user email from an echo.Context by delegating to the
+// request's context.Context. It is a convenience wrapper for handler code.
+func GetUserEmailFromEchoContext(c echo.Context) (string, error) {
+	if c == nil || c.Request() == nil {
+		return "", errors.New("echo context or request is nil")
+	}
+	return GetUserEmailFromContext(c.Request().Context())
 }

@@ -52,3 +52,8 @@ func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (*mo
 
 	return p.pasteRepo.GetPasteByID(ctx, pasteID)
 }
+
+
+func(p*PasteService)GetAllPastes(ctx context.Context,userID uuid.UUID)(*[]models.PasteOutput,error){
+	pastes,err :=p.pasteRepo.GetAllPastes(ctx,userID)
+}
