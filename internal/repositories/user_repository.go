@@ -19,19 +19,19 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 		db: db,
 	}
 }
-func(u*UserRepository)GetUserByID(ctx context.Context,userID uuid.UUID)(*models.User,error){
-	query :=`SELECT * FROM users WHERE user_id=$1`
-	rows,err :=u.db.Query(ctx,query,userID)
-	if err !=nil{
-		return nil,fmt.Errorf("failed to get user by id %w",err)
+func (u *UserRepository) GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error) {
+	query := `SELECT * FROM users WHERE user_id=$1`
+	rows, err := u.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by id %w", err)
 	}
 	defer rows.Close()
-	user,err :=pgx.CollectOneRow(rows,pgx.RowToStructByName[models.User])
-	if err !=nil{
-		return nil,fmt.Errorf("unable to collect row %w",err)
+	user, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[models.User])
+	if err != nil {
+		return nil, fmt.Errorf("unable to collect row %w", err)
 
 	}
-return user,nil
+	return &user, nil
 
 }
 func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
@@ -58,4 +58,3 @@ func (u *UserRepository) ExistsUser(ctx context.Context, email string) (bool, er
 	}
 	return true, nil
 }
-

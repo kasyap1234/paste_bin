@@ -53,10 +53,11 @@ func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (*mo
 	return p.pasteRepo.GetPasteByID(ctx, pasteID)
 }
 
+func (p *PasteService) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
 
-func(p*PasteService)GetAllPastes(ctx context.Context,userID uuid.UUID)(*[]models.PasteOutput,error){
-	// check if user exists or not 
-	
-	pastes,err :=p.pasteRepo.GetAllPastes(ctx,userID)
-	return pastes,nil 
+	pastes, err := p.pasteRepo.GetAllPastes(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get pastes: %w", err)
+	}
+	return pastes, nil
 }

@@ -11,5 +11,5 @@ password_hash TEXT NOT NULL,
 
 -- +goose Down
 -- +goose StatementBegin
-
+DROP TABLE IF EXISTS users;
 -- +goose StatementEnd

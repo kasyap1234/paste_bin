@@ -23,6 +23,7 @@ func NewAuthService(authRepo *repositories.AuthRepository, userRepo *repositorie
 		userRepo:   userRepo,
 	}
 }
+
 func (a *AuthService) Register(ctx context.Context, registerInput *models.RegisterInput) error {
 	// check if user already exists
 	// only proceed if user does not exists

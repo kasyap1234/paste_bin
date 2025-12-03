@@ -12,6 +12,12 @@ type AuthHandler struct {
 	authSvc *services.AuthService
 }
 
+func NewAuthHandler(authSvc *services.AuthService) *AuthHandler {
+	return &AuthHandler{
+		authSvc: authSvc,
+	}
+}
+
 func (h *AuthHandler) Register(c echo.Context) error {
 	var RegisterInput models.RegisterInput
 	if err := c.Bind(RegisterInput); err != nil {
