@@ -104,3 +104,20 @@ func (a *AnalyticsRepository) GetAllAnalytics(ctx context.Context, order string,
 	}
 	return analytics, nil
 }
+
+func (a *AnalyticsRepository) GetAllAnalyticsByUser(ctx context.Context, userID uuid.UUID, order string, limit, offset int) (*[]models.Analytics, error) {
+	query := `SELECT a.id ,a.paste_id,a.url,a.views FROM pastes_analytics a JOIN pastes p WHERE a.paste_id=p.id WHERE p.user_id=$1 ORDER BY $2 LIMIT $3 OFFSET $4`
+	rows, err := a.db.Query(ctx, query, userID, order, limit, offset)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("no analytics found for user")
+		}
+		return nil, fmt.Errorf("failed to get all analytics by user : %w", err)
+	}
+	analytics, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.Analytics])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect rows :%w", err)
+	}
+	return &analytics, nil
+
+}

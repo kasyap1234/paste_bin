@@ -8,3 +8,8 @@ type Analytics struct {
 	URL     string    `json:"url"`
 	Views   int       `json:"views"`
 }
+
+type AnalyticsInput struct {
+	PasteID uuid.UUID `json:"paste_id"`
+	URL     string    `json:"url"`
+}
