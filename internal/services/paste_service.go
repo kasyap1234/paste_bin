@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/repositories"
 
@@ -60,4 +61,21 @@ func (p *PasteService) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]m
 		return nil, fmt.Errorf("unable to get pastes: %w", err)
 	}
 	return pastes, nil
+}
+
+func (p *PasteService) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) error {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get userID from context : %w", err)
+	}
+	paste, err := p.pasteRepo.GetPasteByID(ctx, pasteID)
+	if err != nil {
+		return fmt.Errorf("unable to get paste by ID: %w", err)
+	}
+	if paste.UserID != userID {
+		return fmt.Errorf("user does not have permission to delete this paste")
+	}
+
+	err = p.pasteRepo.DeletePasteByID(ctx, pasteID)
+	return err
 }

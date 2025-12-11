@@ -114,5 +114,21 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*
 }
 
 func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) error {
-sql :=`DELETE * FROM `
+	sql := `DELETE * FROM pastes WHERE paste_id=$1`
+	tx, err := p.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction %w", err)
+	}
+	defer tx.Rollback(ctx)
+	cmdTag, err := tx.Exec(ctx, sql, pasteID)
+	if err != nil {
+		return fmt.Errorf("unable to delete paste by id ")
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("paste not found with id %s", pasteID)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction %w", err)
+	}
+	return nil
 }
