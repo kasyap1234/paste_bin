@@ -79,3 +79,22 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, paste)
 }
+
+func (p *PasteHandler) DeletePasteByID(c echo.Context) error {
+	pasteIDParam := c.Param("id")
+	if pasteIDParam == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste id is required"})
+
+	}
+	pasteID, err := uuid.Parse(pasteIDParam)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste id is invalid"})
+	}
+	ctx := c.Request().Context()
+	err := p.pasteSvc.DeletePasteByID(ctx, pasteID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "cannot delete by paste id "})
+
+	}
+	return c.JSON(http.StatusOK, echo.Map{"error": "deleted"})
+}

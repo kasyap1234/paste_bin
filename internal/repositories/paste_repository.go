@@ -112,3 +112,7 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*
 	}
 	return &pastes, nil
 }
+
+func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) error {
+sql :=`DELETE * FROM `
+}
