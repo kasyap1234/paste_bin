@@ -91,7 +91,7 @@ func (p *PasteHandler) DeletePasteByID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste id is invalid"})
 	}
 	ctx := c.Request().Context()
-	err := p.pasteSvc.DeletePasteByID(ctx, pasteID)
+	err = p.pasteSvc.DeletePasteByID(ctx, pasteID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "cannot delete by paste id "})
 
