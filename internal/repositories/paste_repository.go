@@ -6,6 +6,7 @@ import (
 	"pastebin/internal/models"
 	"pastebin/pkg/utils"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -23,7 +24,7 @@ func NewPasteRepository(db *pgxpool.Pool) *PasteRepository {
 }
 
 func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pasteInput *models.PasteInput) error {
-	query := `INSERT INTO pastes (user_id,title,is_private,content,language,url) VALUES ($1,$2,$3,$4,$5,$6)`
+	query := `INSERT INTO pastes (user_id,title,is_private,content,language,url,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`
 	title := pasteInput.Title
 	if title == "" {
 		title = "Untitled"
@@ -38,13 +39,14 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	}
 	language := pasteInput.Language
 	content := pasteInput.Content
+	expiresAt := pasteInput.ExpiresAt
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url)
+	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url, expiresAt)
 	if err != nil {
 		return fmt.Errorf("failed to insert paste: %w", err)
 	}
@@ -94,6 +96,12 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect paste: %w", err)
 	}
+
+	// Check if paste has expired
+	if paste.ExpiresAt != nil && paste.ExpiresAt.Before(time.Now()) {
+		return nil, fmt.Errorf("paste has expired")
+	}
+
 	return &paste, nil
 }
 
@@ -110,7 +118,16 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect pastes :  %w", err)
 	}
-	return &pastes, nil
+
+	// Filter out expired pastes
+	var validPastes []models.PasteOutput
+	for _, paste := range pastes {
+		if paste.ExpiresAt == nil || !paste.ExpiresAt.Before(time.Now()) {
+			validPastes = append(validPastes, paste)
+		}
+	}
+
+	return &validPastes, nil
 }
 
 func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) error {
@@ -132,3 +149,6 @@ func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID
 	}
 	return nil
 }
+
+
+func(p*PasteRepository) Filter(ctx context.Context,pasteID uuid.UUID,filterOptions *models.PasteFilters)

@@ -121,3 +121,19 @@ func (a *AnalyticsRepository) GetAllAnalyticsByUser(ctx context.Context, userID 
 	return &analytics, nil
 
 }
+
+func (a *AnalyticsRepository) GetAnalyticsByID(ctx context.Context, ID uuid.UUID) (*models.Analytics, error) {
+	query := `SELECT * FROM pastes_analytics WHERE ID=$1`
+	rows, err := a.db.Query(ctx, query, ID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("no analytics found with this ID ")
+		}
+		return nil, fmt.Errorf("failed to get analytics for id %w", err)
+	}
+	analytic, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[models.Analytics])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect row : %w", err)
+	}
+	return &analytic, nil
+}

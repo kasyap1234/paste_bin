@@ -10,6 +10,7 @@ content TEXT NOT NULL,
 password TEXT NOT NULL,
 language TEXT NOT NULL,
 URL TEXT NOT NULL,
+expires_at TIMESTAMPTZ,
 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

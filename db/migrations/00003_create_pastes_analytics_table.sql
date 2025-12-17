@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS pastes_analytis(
+CREATE TABLE IF NOT EXISTS pastes_analytics(
 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 pasteID UUID NOT NULL REFERENCES pastes(id) ON DELETE CASCADE,
 url TEXT ,

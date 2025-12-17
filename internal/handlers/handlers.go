@@ -1,6 +1,9 @@
 package handlers
 
-import "github.com/labstack/echo/v4"
+import (
+	"github.com/labstack/echo/v4"
+	echoSwagger "github.com/swaggo/echo-swagger"
+)
 
 type Handlers struct {
 	authHandler      *AuthHandler
@@ -22,9 +25,14 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo) {
 	e.POST("/paste", h.pasteHandler.CreatePaste)
 	e.PUT("/paste/:id", h.pasteHandler.UpdatePaste)
 	e.GET("/paste/:id", h.pasteHandler.GetPasteByID)
+	e.DELETE("/paste/:id", h.pasteHandler.DeletePasteByID)
 	e.GET("/pastes", h.pasteHandler.GetAllPastes)
 	e.GET("/analytics", h.analyticsHandler.GetAllAnalytics)
-	e.GET("/analytics", h.analyticsHandler.GetAllAnalyticsByUser)
+	e.GET("/analytics/user", h.analyticsHandler.GetAllAnalyticsByUser)
+	e.GET("/analytics/paste", h.analyticsHandler.GetAnalyticsByPasteID)
 	e.POST("/create-analytics", h.analyticsHandler.CreateAnalytics)
+	e.GET("/analytics/:id", h.analyticsHandler.GetAnalyticsByID)
 
+	// Swagger documentation
+	e.GET("/swagger/*", echoSwagger.WrapHandler)
 }

@@ -38,6 +38,14 @@ func (s *AnalyticsService) GetAnalyticsByPasteID(ctx context.Context, pasteID uu
 	return s.analyticsRepo.GetAnalyticsByPasteID(ctx, pasteID)
 }
 
+func (s *AnalyticsService) GetAnalyticsByID(ctx context.Context, ID uuid.UUID) (*models.Analytics, error) {
+	if ID == uuid.Nil {
+		return nil, fmt.Errorf("unable to get analytics for nil analytics id ")
+	}
+	return s.analyticsRepo.GetAnalyticsByID(ctx, ID)
+
+}
+
 func (s *AnalyticsService) IncrementViews(ctx context.Context, pasteID uuid.UUID) error {
 	if pasteID == uuid.Nil {
 		return fmt.Errorf("unable to increment views for nil pasteID")
@@ -76,7 +84,7 @@ func (s *AnalyticsService) GetAllAnalyticsByUser(ctx context.Context, userID uui
 		// by default use order created_at desc
 		order = "created_at DESC"
 	}
-
+	
 	if limit <= 0 {
 		limit = 10
 	}
