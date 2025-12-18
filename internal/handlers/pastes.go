@@ -136,7 +136,13 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste ID is invalid"})
 	}
 	ctx := c.Request().Context()
-	paste, err := p.pasteSvc.GetPasteByID(ctx, pasteID)
+	userID, err := auth.GetUserIDFromContext(ctx)
+	isAuthenticated := err == nil
+	var requestUserID uuid.UUID
+	if isAuthenticated {
+		requestUserID = userID
+	}
+	paste, err := p.pasteSvc.GetPasteByID(ctx, pasteID, isAuthenticated, requestUserID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get paste"})
 	}

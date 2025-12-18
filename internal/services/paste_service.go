@@ -41,7 +41,12 @@ func (s *PasteService) CreatePaste(ctx context.Context, createPaste *models.Past
 }
 
 func (p *PasteService) UpdatePaste(ctx context.Context, pasteID uuid.UUID, patchPaste *models.PatchPaste) error {
-	_, err := p.GetPasteByID(ctx, pasteID)
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get userID from context: %w", err)
+	}
+
+	_, err = p.GetPasteByID(ctx, pasteID, true, userID)
 	if err != nil {
 		return fmt.Errorf("unable to find paste with ID: %s ", pasteID)
 	}
@@ -49,9 +54,9 @@ func (p *PasteService) UpdatePaste(ctx context.Context, pasteID uuid.UUID, patch
 	return err
 }
 
-func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (*models.PasteOutput, error) {
+func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAuthenticated bool, userID uuid.UUID) (*models.PasteOutput, error) {
 
-	return p.pasteRepo.GetPasteByID(ctx, pasteID)
+	return p.pasteRepo.GetPasteByID(ctx, pasteID, isAuthenticated, userID)
 }
 
 func (p *PasteService) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
@@ -68,7 +73,7 @@ func (p *PasteService) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) e
 	if err != nil {
 		return fmt.Errorf("unable to get userID from context : %w", err)
 	}
-	paste, err := p.pasteRepo.GetPasteByID(ctx, pasteID)
+	paste, err := p.pasteRepo.GetPasteByID(ctx, pasteID, true, userID)
 	if err != nil {
 		return fmt.Errorf("unable to get paste by ID: %w", err)
 	}

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -84,7 +83,7 @@ func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, pa
 	return nil
 }
 
-func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (*models.PasteOutput, error) {
+func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAuthenticated bool, userID uuid.UUID) (*models.PasteOutput, error) {
 	query := `SELECT p.id,p.user_id,p.title,p.is_private,p.content,p.language,p.url,p.expires_at ,p.created_at,p.updated_at ,COALESCE(a.views,0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id=a.paste_id WHERE p.id=$1`
 	row, err := p.db.Query(ctx, query, pasteID)
 	if err != nil {
@@ -102,8 +101,30 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (
 	if paste.ExpiresAt != nil && paste.ExpiresAt.Before(time.Now()) {
 		return nil, fmt.Errorf("paste has expired")
 	}
-
+	// check if it is public
+	// if yes
+	isOwner := isAuthenticated && paste.UserID == userID
+	if !isOwner {
+		// it is public view
+		err := p.incrementViewCount(ctx, pasteID)
+		if err != nil {
+			// Log the error but don't fail the paste retrieval
+			// since view counting is not critical
+			fmt.Printf("Failed to increment view count for paste %s: %v\n", pasteID, err)
+		}
+	}
 	return &paste, nil
+}
+
+func (p *PasteRepository) incrementViewCount(ctx context.Context, pasteID uuid.UUID) error {
+	query := `INSERT INTO pastes_analytics (pasteid,views,updated_at) VALUES($1,1,NOW())
+ON CONFLICT (pasteid)
+DO UPDATE SET 
+views=paste_analytics.views +1 , updated_at=NOW()
+`
+	_, err := p.db.Exec(ctx, query, pasteID)
+	return err
+
 }
 
 func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
