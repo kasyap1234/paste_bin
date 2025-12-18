@@ -26,12 +26,19 @@ import (
 
 	"pastebin/app"
 	_ "pastebin/docs" // This is required for swagger
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	application, err := app.New()
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("failed to initialize app: %v", err)
+		log.Printf("Warning: .env file not found, using system env vars: %v", err)
+	}
+
+	application, appErr := app.New()
+	if appErr != nil {
+		log.Fatalf("failed to initialize app: %v", appErr)
 	}
 
 	if err := application.Run(); err != nil {

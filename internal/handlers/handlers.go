@@ -35,4 +35,9 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo) {
 
 	// Swagger documentation
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
+
+	// Handle favicon.ico
+	e.GET("/favicon.ico", func(c echo.Context) error {
+		return c.NoContent(204)
+	})
 }

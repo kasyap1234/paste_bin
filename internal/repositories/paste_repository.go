@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -84,7 +85,7 @@ func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, pa
 }
 
 func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (*models.PasteOutput, error) {
-	query := `SELECT * FROM pastes WHERE id=$1`
+	query := `SELECT p.id,p.user_id,p.title,p.is_private,p.content,p.language,p.url,p.expires_at ,p.created_at,p.updated_at ,COALESCE(a.views,0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id=a.paste_id WHERE p.id=$1`
 	row, err := p.db.Query(ctx, query, pasteID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -106,7 +107,7 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID) (
 }
 
 func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
-	sql := `SELECT * FROM pastes WHERE user_id=$1`
+	sql := `SELECT p.id,p.user_id,p.title,p.is_private,p.language,p.url,p.expires_at,p.crated_at ,COALESCE(a.views,0) as views  FROM pastes p LEFT JOIN pastes_analytics a ON p.id=a.paste_id WHERE user_id=$1 ORDER BY p.created_at DESC`
 	row, err := p.db.Query(ctx, sql, userID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -150,5 +151,6 @@ func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID
 	return nil
 }
 
-
-func(p*PasteRepository) Filter(ctx context.Context,pasteID uuid.UUID,filterOptions *models.PasteFilters)
+// func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pasteFilter *models.PasteFilters) (*[]models.PasteOutput, error) {
+// 	qb := sq.Select("*").From("pastes").Where(sq)
+// }
