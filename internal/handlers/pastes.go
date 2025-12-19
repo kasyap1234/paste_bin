@@ -232,3 +232,16 @@ func (p *PasteHandler) GetRawPaste(c echo.Context) error {
 	c.Response().Header().Set("Content-Type", "text/plain")
 	return c.String(http.StatusOK, paste.Content)
 }
+
+func (p *PasteHandler) FilterPastes(c echo.Context) error {
+	var filter models.PasteFilters
+	if err := c.Bind(&filter); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+	}
+	ctx := c.Request().Context()
+	pastes, err := p.pasteSvc.FilterPastes(ctx, &filter)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to filter pastes"})
+	}
+	return c.JSON(http.StatusOK, pastes)
+}

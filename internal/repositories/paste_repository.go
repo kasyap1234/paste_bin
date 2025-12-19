@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"pastebin/internal/models"
+	"pastebin/pkg/utils"
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
@@ -31,6 +32,7 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	}
 	urlSlug := uuid.New().String()[:8]
 	var isPrivate bool
+	var passwordHash string
 	baseURL := os.Getenv("BASE_URL")
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
@@ -38,8 +40,14 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	url := baseURL + "/p/" + urlSlug
 	if pasteInput.Password == "" {
 		isPrivate = false
+		passwordHash = ""
 	} else {
 		isPrivate = true
+		hashedPassword, err := utils.HashPassword(pasteInput.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %w", err)
+		}
+		passwordHash = hashedPassword
 	}
 	language := pasteInput.Language
 	content := pasteInput.Content
