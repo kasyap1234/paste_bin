@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"pastebin/internal/models"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -55,13 +56,24 @@ func (a *AnalyticsRepository) GetAnalyticsByPasteID(ctx context.Context, pasteID
 }
 
 func (a *AnalyticsRepository) IncrementViews(ctx context.Context, pasteID uuid.UUID) error {
-	query := `UPDATE pastes_analytics SET views=views+1 WHERE pasteID=$1`
+	// Build the update query using squirrel
+	query := sq.Update("pastes_analytics").
+		Set("views", sq.Expr("views+1")).
+		Where(sq.Eq{"pasteid": pasteID}).
+		PlaceholderFormat(sq.Dollar)
+
+	queryStr, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build increment views query: %w", err)
+	}
+
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	_, err = tx.Exec(ctx, query, pasteID)
+
+	_, err = tx.Exec(ctx, queryStr, args...)
 	if err != nil {
 		return fmt.Errorf("failed to increment views: %w", err)
 	}

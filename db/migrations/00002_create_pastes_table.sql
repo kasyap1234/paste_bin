@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE EXTENSION IF NOT EXISTS "pgcyrpto";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS pastes(
 id UUID PRIMARY KEY gen_random_uuid(),
 user_id UUID REFERENCES users(id),

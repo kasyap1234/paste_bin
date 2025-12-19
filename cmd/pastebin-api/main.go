@@ -31,7 +31,7 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
+	err := godotenv.Load("../../.env")
 	if err != nil {
 		log.Printf("Warning: .env file not found, using system env vars: %v", err)
 	}

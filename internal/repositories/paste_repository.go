@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"pastebin/internal/models"
-	"pastebin/pkg/utils"
-	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -57,29 +56,60 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 }
 
 func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, patchInput *models.PatchPaste) error {
-	sets, values, nextIndex := utils.BuildSets(patchInput)
-	if len(sets) == 0 {
-		return fmt.Errorf("no fields to update")
+	// Build the update query using squirrel
+	updateBuilder := sq.Update("pastes").PlaceholderFormat(sq.Dollar)
+
+	// Add fields to update if they are provided (not nil)
+	if patchInput.Title != nil {
+		updateBuilder = updateBuilder.Set("title", *patchInput.Title)
 	}
-	values = append(values, pasteID)
-	query := fmt.Sprintf(`UPDATE pastes SET %s ,updated_at=NOW() WHERE id=$%d`, strings.Join(sets, ","), nextIndex)
+	if patchInput.Content != nil {
+		updateBuilder = updateBuilder.Set("content", *patchInput.Content)
+	}
+	if patchInput.Language != nil {
+		updateBuilder = updateBuilder.Set("language", *patchInput.Language)
+	}
+	if patchInput.IsPrivate != nil {
+		updateBuilder = updateBuilder.Set("is_private", *patchInput.IsPrivate)
+	}
+	if patchInput.Password != nil {
+		updateBuilder = updateBuilder.Set("password", *patchInput.Password)
+	}
+	if patchInput.ExpiresAt != nil {
+		updateBuilder = updateBuilder.Set("expires_at", *patchInput.ExpiresAt)
+	}
+
+	// Always update the updated_at timestamp
+	updateBuilder = updateBuilder.Set("updated_at", time.Now()).Where(sq.Eq{"id": pasteID})
+
+	// Check if any fields were provided to update
+	query, args, err := updateBuilder.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build update query: %w", err)
+	}
+
+	// Begin transaction
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction : %w", err)
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	cmdTag, err := tx.Exec(ctx, query, values...)
+
+	// Execute the update query
+	cmdTag, err := tx.Exec(ctx, query, args...)
 	if err != nil {
-		return fmt.Errorf("failed to udpate paste: %w", err)
+		return fmt.Errorf("failed to update paste: %w", err)
 	}
+
 	if cmdTag.RowsAffected() == 0 {
-		return fmt.Errorf("paste not found with id : %s", pasteID.String())
-
+		return fmt.Errorf("paste not found with id: %s", pasteID.String())
 	}
+
+	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction : %w", err)
-
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
 	return nil
 }
 
@@ -119,7 +149,7 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 func (p *PasteRepository) incrementViewCount(ctx context.Context, pasteID uuid.UUID) error {
 	query := `INSERT INTO pastes_analytics (pasteid,views,updated_at) VALUES($1,1,NOW())
 ON CONFLICT (pasteid)
-DO UPDATE SET 
+DO UPDATE SET
 views=paste_analytics.views +1 , updated_at=NOW()
 `
 	_, err := p.db.Exec(ctx, query, pasteID)
@@ -153,25 +183,120 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*
 }
 
 func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) error {
-	sql := `DELETE * FROM pastes WHERE paste_id=$1`
+	// Build the delete query using squirrel
+	query := sq.Delete("pastes").
+		Where(sq.Eq{"id": pasteID}).
+		PlaceholderFormat(sq.Dollar)
+
+	queryStr, args, err := query.ToSql()
+	if err != nil {
+		return fmt.Errorf("failed to build delete query: %w", err)
+	}
+
+	// Begin transaction
 	tx, err := p.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction %w", err)
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	cmdTag, err := tx.Exec(ctx, sql, pasteID)
+
+	// Execute the delete query
+	cmdTag, err := tx.Exec(ctx, queryStr, args...)
 	if err != nil {
-		return fmt.Errorf("unable to delete paste by id ")
+		return fmt.Errorf("failed to delete paste by id: %w", err)
 	}
+
 	if cmdTag.RowsAffected() == 0 {
-		return fmt.Errorf("paste not found with id %s", pasteID)
+		return fmt.Errorf("paste not found with id: %s", pasteID)
 	}
+
+	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction %w", err)
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
+
 	return nil
 }
 
-// func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pasteFilter *models.PasteFilters) (*[]models.PasteOutput, error) {
-// 	qb := sq.Select("*").From("pastes").Where(sq)
-// }
+func (p *PasteRepository) FilterPastes(ctx context.Context, pasteFilter *models.PasteFilters) (*[]models.PasteOutput, error) {
+	// Build base select query - only select columns that exist in PasteOutput
+	builder := sq.Select(
+		"p.id",
+		"p.user_id",
+		"p.title",
+		"p.is_private",
+		"p.content",
+		"p.language",
+		"p.url",
+		"p.expires_at",
+		"COALESCE(a.views, 0) as views",
+	).From("pastes p").
+		LeftJoin("pastes_analytics a ON p.id = a.paste_id").
+		PlaceholderFormat(sq.Dollar)
+
+	// Exclude expired pastes
+	builder = builder.Where(sq.Or{
+		sq.Eq{"p.expires_at": nil},
+		sq.Gt{"p.expires_at": time.Now()},
+	})
+
+	// Apply filters if provided
+	if pasteFilter != nil {
+		if len(pasteFilter.Languages) > 0 {
+			builder = builder.Where(sq.Eq{"p.language": pasteFilter.Languages})
+		}
+		if pasteFilter.DateFrom != nil {
+			builder = builder.Where(sq.GtOrEq{"p.created_at": *pasteFilter.DateFrom})
+		}
+		if pasteFilter.DateTo != nil {
+			builder = builder.Where(sq.LtOrEq{"p.created_at": *pasteFilter.DateTo})
+		}
+
+		// Handle sorting with allow-list for security
+		sortBy := "p.created_at"
+		switch pasteFilter.SortBy {
+		case "created_at":
+			sortBy = "p.created_at"
+		case "updated_at":
+			sortBy = "p.updated_at"
+		case "views":
+			sortBy = "views"
+		case "title":
+			sortBy = "p.title"
+		}
+
+		// Handle sort order
+		sortOrder := "DESC"
+		if pasteFilter.SortOrder == "asc" || pasteFilter.SortOrder == "ASC" {
+			sortOrder = "ASC"
+		}
+		builder = builder.OrderBy(fmt.Sprintf("%s %s", sortBy, sortOrder))
+	} else {
+		// Default sorting when no filter is provided
+		builder = builder.OrderBy("p.created_at DESC")
+	}
+
+	// Build the SQL query
+	queryStr, args, err := builder.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build filter query: %w", err)
+	}
+
+	// Execute the query
+	rows, err := p.db.Query(ctx, queryStr, args...)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			empty := []models.PasteOutput{}
+			return &empty, nil
+		}
+		return nil, fmt.Errorf("failed to filter pastes: %w", err)
+	}
+
+	// Collect rows into structs using pgx
+	pastes, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.PasteOutput])
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect filtered pastes: %w", err)
+	}
+
+	return &pastes, nil
+}

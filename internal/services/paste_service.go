@@ -11,6 +11,7 @@ import (
 )
 
 type PasteService struct {
+	
 	pasteRepo *repositories.PasteRepository
 }
 
@@ -84,3 +85,4 @@ func (p *PasteService) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) e
 	err = p.pasteRepo.DeletePasteByID(ctx, pasteID)
 	return err
 }
+

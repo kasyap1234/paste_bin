@@ -84,7 +84,7 @@ func (s *AnalyticsService) GetAllAnalyticsByUser(ctx context.Context, userID uui
 		// by default use order created_at desc
 		order = "created_at DESC"
 	}
-	
+
 	if limit <= 0 {
 		limit = 10
 	}
