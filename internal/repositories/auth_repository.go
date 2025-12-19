@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"pastebin/internal/models"
 	"pastebin/pkg/utils"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,20 +26,19 @@ func (a *AuthRepository) Register(ctx context.Context, registerInput *models.Reg
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 	user := &models.User{
-		ID:        uuid.New(),
-		Email:     registerInput.Email,
-		Password:  hashedPassword,
-		CreatedAt: time.Now(),
-		UpdatedAT: time.Now(),
+		ID:       uuid.New(),
+		Name:     registerInput.Name,
+		Email:    registerInput.Email,
+		Password: hashedPassword,
 	}
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	query := `INSERT INTO users(id,email,password,created_at,updated_at) VALUES ($1,$2,$3,$4,$5)`
+	query := `INSERT INTO users(id,name,email,password_hash) VALUES ($1,$2,$3,$4)`
 
-	_, err = tx.Exec(ctx, query, user.ID, user.Email, user.Password, user.CreatedAt, user.UpdatedAT)
+	_, err = tx.Exec(ctx, query, user.ID, user.Name, user.Email, user.Password)
 	if err != nil {
 		return fmt.Errorf("failed to insert user: %w", err)
 	}

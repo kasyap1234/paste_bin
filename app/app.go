@@ -31,7 +31,7 @@ type App struct {
 // wiring lives in their respective packages.
 func New() (*App, error) {
 	logger := initLogger()
-	
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		return nil, fmt.Errorf("JWT_SECRET env var is required")
@@ -64,7 +64,8 @@ func New() (*App, error) {
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 
-	handlerSet.RegisterRoutes(e)
+	authMiddleware := auth.AuthMiddleware(jwtMgr)
+	handlerSet.RegisterRoutes(e, authMiddleware)
 
 	addr := resolveAddr()
 

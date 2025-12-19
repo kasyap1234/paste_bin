@@ -19,19 +19,13 @@ func NewHandlers(authHandler *AuthHandler, pasteHandler *PasteHandler, analytics
 	}
 }
 
-func (h *Handlers) RegisterRoutes(e *echo.Echo) {
+func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFunc) {
+	// Public routes (no authentication required)
 	e.POST("/register", h.authHandler.Register)
 	e.POST("/login", h.authHandler.Login)
-	e.POST("/paste", h.pasteHandler.CreatePaste)
-	e.PUT("/paste/:id", h.pasteHandler.UpdatePaste)
-	e.GET("/paste/:id", h.pasteHandler.GetPasteByID)
-	e.DELETE("/paste/:id", h.pasteHandler.DeletePasteByID)
-	e.GET("/pastes", h.pasteHandler.GetAllPastes)
-	e.GET("/analytics", h.analyticsHandler.GetAllAnalytics)
-	e.GET("/analytics/user", h.analyticsHandler.GetAllAnalyticsByUser)
-	e.GET("/analytics/paste", h.analyticsHandler.GetAnalyticsByPasteID)
-	e.POST("/create-analytics", h.analyticsHandler.CreateAnalytics)
-	e.GET("/analytics/:id", h.analyticsHandler.GetAnalyticsByID)
+	e.GET("/paste/:id", h.pasteHandler.GetPasteByID) // Allow public viewing by UUID
+	e.GET("/p/:slug", h.pasteHandler.GetPublicPaste) // Public sharing by slug
+	e.GET("/raw/:slug", h.pasteHandler.GetRawPaste)  // Raw content by slug
 
 	// Swagger documentation
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
@@ -40,4 +34,16 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo) {
 	e.GET("/favicon.ico", func(c echo.Context) error {
 		return c.NoContent(204)
 	})
+
+	// Protected routes (require authentication)
+	protected := e.Group("", authMiddleware)
+	protected.POST("/paste", h.pasteHandler.CreatePaste)
+	protected.PUT("/paste/:id", h.pasteHandler.UpdatePaste)
+	protected.DELETE("/paste/:id", h.pasteHandler.DeletePasteByID)
+	protected.GET("/pastes", h.pasteHandler.GetAllPastes)
+	protected.GET("/analytics", h.analyticsHandler.GetAllAnalytics)
+	protected.GET("/analytics/user", h.analyticsHandler.GetAllAnalyticsByUser)
+	protected.GET("/analytics/paste", h.analyticsHandler.GetAnalyticsByPasteID)
+	protected.POST("/create-analytics", h.analyticsHandler.CreateAnalytics)
+	protected.GET("/analytics/:id", h.analyticsHandler.GetAnalyticsByID)
 }

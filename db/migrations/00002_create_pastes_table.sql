@@ -2,14 +2,14 @@
 -- +goose StatementBegin
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS pastes(
-id UUID PRIMARY KEY gen_random_uuid(),
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 user_id UUID REFERENCES users(id),
 title TEXT NOT NULL,
 is_private BOOLEAN NOT NULL DEFAULT false,
 content TEXT NOT NULL,
 password TEXT NOT NULL,
 language TEXT NOT NULL,
-URL TEXT NOT NULL,
+url TEXT NOT NULL,
 expires_at TIMESTAMPTZ,
 created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

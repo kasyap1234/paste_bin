@@ -11,7 +11,6 @@ import (
 )
 
 type PasteService struct {
-	
 	pasteRepo *repositories.PasteRepository
 }
 
@@ -20,22 +19,22 @@ func NewPasteService(pasteRepo *repositories.PasteRepository) *PasteService {
 		pasteRepo: pasteRepo,
 	}
 }
-func (s *PasteService) CreatePaste(ctx context.Context, createPaste *models.PasteInput) error {
+func (s *PasteService) CreatePaste(ctx context.Context, createPaste *models.PasteInput) (*models.PasteOutput, error) {
 	val := ctx.Value("userIDKey")
 	if val == nil {
-		return fmt.Errorf("missing userID in the context")
+		return nil, fmt.Errorf("missing userID in the context")
 	}
 
 	userID, ok := val.(uuid.UUID)
 	if !ok {
 		str, ok := val.(string)
 		if !ok {
-			return fmt.Errorf("user ID is not a valid string")
+			return nil, fmt.Errorf("user ID is not a valid string")
 		}
 		var err error
 		userID, err = uuid.Parse(str)
 		if err != nil {
-			return fmt.Errorf("unable to parse userID : %w", err)
+			return nil, fmt.Errorf("unable to parse userID : %w", err)
 		}
 	}
 	return s.pasteRepo.CreatePaste(ctx, userID, createPaste)
@@ -86,3 +85,19 @@ func (p *PasteService) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) e
 	return err
 }
 
+func (p *PasteService) FilterPastes(ctx context.Context, filter *models.PasteFilters) (*[]models.PasteOutput, error) {
+
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get userID from context: %w", err)
+	}
+	pastes, err := p.pasteRepo.FilterPastes(ctx, userID, filter)
+	if err != nil {
+		return nil, fmt.Errorf("unable to filter pastes: %w", err)
+	}
+	return pastes, nil
+}
+
+func (p *PasteService) GetPasteBySlug(ctx context.Context, slug string) (*models.PasteOutput, error) {
+	return p.pasteRepo.GetPasteBySlug(ctx, slug)
+}

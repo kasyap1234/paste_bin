@@ -30,7 +30,7 @@ func NewPasteHandler(pasteSvc *services.PasteService) *PasteHandler {
 //	@Produce		json
 //	@Param			request		body		models.PasteInput		true	"Paste data"
 //	@Param			expires_in	query		string					false	"Expiration duration (e.g., '24h', '7d')"
-//	@Success		201			{object}	map[string]string		"Paste created successfully"
+//	@Success		201			{object}	models.PasteOutput		"Created paste with shareable URL"
 //	@Failure		400			{object}	map[string]string		"Invalid request"
 //	@Failure		500			{object}	map[string]string		"Unable to create paste"
 //	@Security		BearerAuth
@@ -53,12 +53,12 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	if err := p.pasteSvc.CreatePaste(ctx, &createPaste); err != nil {
+	paste, err := p.pasteSvc.CreatePaste(ctx, &createPaste)
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to create a paste"})
-
 	}
-	return c.JSON(201, echo.Map{"error": "paste created"})
 
+	return c.JSON(http.StatusCreated, paste)
 }
 
 // UpdatePaste godoc
@@ -78,14 +78,13 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 func (p *PasteHandler) UpdatePaste(c echo.Context) error {
 	var patchPaste models.PatchPaste
 	if err := c.Bind(&patchPaste); err != nil {
-		c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
 	}
 	ctx := c.Request().Context()
 	if err := p.pasteSvc.UpdatePaste(ctx, *patchPaste.ID, &patchPaste); err != nil {
-		c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to update paste"})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to update paste"})
 	}
 	return c.JSON(http.StatusOK, echo.Map{"message": "paste updated "})
-
 }
 
 // GetAllPastes godoc
@@ -96,19 +95,15 @@ func (p *PasteHandler) UpdatePaste(c echo.Context) error {
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{array}		models.PasteOutput	"List of pastes"
-//	@Failure		401	{object}	map[string]string	"Unauthorized"
+//	@Failure		500	{object}	map[string]string	"Unable to get pastes"
 //	@Security		BearerAuth
 //	@Router			/pastes [get]
 func (p *PasteHandler) GetAllPastes(c echo.Context) error {
-	userID, err := auth.GetUserIDFromContext(c.Request().Context())
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "unable to get userID "})
-	}
+	userID, _ := auth.GetUserIDFromEchoContext(c) // Middleware ensures this succeeds
 
 	pastes, err := p.pasteSvc.GetAllPastes(c.Request().Context(), userID)
-
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "unable to get userID "})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get pastes"})
 	}
 
 	return c.JSON(http.StatusOK, pastes)
@@ -159,7 +154,7 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 //	@Param			id	path		string				true	"Paste ID"
 //	@Success		200	{object}	map[string]string	"Paste deleted successfully"
 //	@Failure		400	{object}	map[string]string	"Invalid paste ID"
-//	@Failure		500	{object}	map[string]string	"Cannot delete paste"
+//	@Failure		500	{object}	map[string]string	"Unable to delete paste"
 //	@Security		BearerAuth
 //	@Router			/paste/{id} [delete]
 func (p *PasteHandler) DeletePasteByID(c echo.Context) error {
@@ -179,4 +174,61 @@ func (p *PasteHandler) DeletePasteByID(c echo.Context) error {
 
 	}
 	return c.JSON(http.StatusOK, echo.Map{"error": "deleted"})
+}
+
+// GetPublicPaste godoc
+//
+//	@Summary		Get public paste by slug
+//	@Description	Retrieve a public paste by its URL slug
+//	@Tags			pastes
+//	@Accept			json
+//	@Produce		json
+//	@Param			slug	path		string				true	"Paste slug"
+//	@Success		200		{object}	models.PasteOutput	"Paste data"
+//	@Failure		400		{object}	map[string]string	"Invalid slug"
+//	@Failure		404		{object}	map[string]string	"Paste not found"
+//	@Failure		500		{object}	map[string]string	"Unable to get paste"
+//	@Router			/p/{slug} [get]
+func (p *PasteHandler) GetPublicPaste(c echo.Context) error {
+	slug := c.Param("slug")
+	if slug == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste slug is required"})
+	}
+
+	ctx := c.Request().Context()
+	paste, err := p.pasteSvc.GetPasteBySlug(ctx, slug)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "paste not found"})
+	}
+
+	return c.JSON(http.StatusOK, paste)
+}
+
+// GetRawPaste godoc
+//
+//	@Summary		Get raw paste content by slug
+//	@Description	Retrieve raw text content of a public paste by its URL slug
+//	@Tags			pastes
+//	@Accept			json
+//	@Produce		text/plain
+//	@Param			slug	path		string				true	"Paste slug"
+//	@Success		200		{string}	string				"Raw paste content"
+//	@Failure		400		{object}	map[string]string	"Invalid slug"
+//	@Failure		404		{object}	map[string]string	"Paste not found"
+//	@Failure		500		{object}	map[string]string	"Unable to get paste"
+//	@Router			/raw/{slug} [get]
+func (p *PasteHandler) GetRawPaste(c echo.Context) error {
+	slug := c.Param("slug")
+	if slug == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste slug is required"})
+	}
+
+	ctx := c.Request().Context()
+	paste, err := p.pasteSvc.GetPasteBySlug(ctx, slug)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "paste not found"})
+	}
+
+	c.Response().Header().Set("Content-Type", "text/plain")
+	return c.String(http.StatusOK, paste.Content)
 }
