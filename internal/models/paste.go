@@ -36,3 +36,11 @@ type PatchPaste struct {
 	Password  *string    `json:"password" db:"password"`
 	ExpiresAt *time.Time `json:"expires_at" db:"expires_at"`
 }
+
+type PaginatedPastesResponse struct {
+	Pastes    []PasteOutput `json:"pastes"`
+	Total     int           `json:"total"`
+	Limit     int           `json:"limit"`
+	Offset    int           `json:"offset"`
+	HasMore   bool          `json:"has_more"`
+}

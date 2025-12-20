@@ -59,13 +59,32 @@ func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAu
 	return p.pasteRepo.GetPasteByID(ctx, pasteID, isAuthenticated, userID)
 }
 
-func (p *PasteService) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
+func (p *PasteService) GetAllPastes(ctx context.Context, userID uuid.UUID, limit, offset int) (*models.PaginatedPastesResponse, error) {
+	// Validate and set defaults
+	if limit <= 0 {
+		limit = 10 // default limit
+	}
+	if limit > 100 {
+		limit = 100 // max limit to prevent abuse
+	}
+	if offset < 0 {
+		offset = 0
+	}
 
-	pastes, err := p.pasteRepo.GetAllPastes(ctx, userID)
+	pastes, total, err := p.pasteRepo.GetAllPastes(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get pastes: %w", err)
 	}
-	return pastes, nil
+
+	hasMore := offset+limit < total
+
+	return &models.PaginatedPastesResponse{
+		Pastes:  pastes,
+		Total:   total,
+		Limit:   limit,
+		Offset:  offset,
+		HasMore: hasMore,
+	}, nil
 }
 
 func (p *PasteService) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) error {

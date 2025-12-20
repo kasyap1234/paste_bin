@@ -5,6 +5,7 @@ import (
 	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,23 +91,48 @@ func (p *PasteHandler) UpdatePaste(c echo.Context) error {
 // GetAllPastes godoc
 //
 //	@Summary		Get all pastes for user
-//	@Description	Retrieve all pastes for the authenticated user
+//	@Description	Retrieve all pastes for the authenticated user with pagination
 //	@Tags			pastes
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{array}		models.PasteOutput	"List of pastes"
-//	@Failure		500	{object}	map[string]string	"Unable to get pastes"
+//	@Param			limit	query		int		false	"Number of pastes to return (default: 10, max: 100)"
+//	@Param			offset	query		int		false	"Number of pastes to skip (default: 0)"
+//	@Success		200		{object}	models.PaginatedPastesResponse	"Paginated list of pastes"
+//	@Failure		400		{object}	map[string]string	"Invalid pagination parameters"
+//	@Failure		500		{object}	map[string]string	"Unable to get pastes"
 //	@Security		BearerAuth
 //	@Router			/pastes [get]
 func (p *PasteHandler) GetAllPastes(c echo.Context) error {
 	userID, _ := auth.GetUserIDFromEchoContext(c) // Middleware ensures this succeeds
 
-	pastes, err := p.pasteSvc.GetAllPastes(c.Request().Context(), userID)
+	// Parse pagination parameters
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
+
+	limit := 10 // default limit
+	if limitStr != "" {
+		var err error
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil || limit < 1 {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit parameter"})
+		}
+	}
+
+	offset := 0 // default offset
+	if offsetStr != "" {
+		var err error
+		offset, err = strconv.Atoi(offsetStr)
+		if err != nil || offset < 0 {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset parameter"})
+		}
+	}
+
+	result, err := p.pasteSvc.GetAllPastes(c.Request().Context(), userID, limit, offset)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get pastes"})
 	}
 
-	return c.JSON(http.StatusOK, pastes)
+	return c.JSON(http.StatusOK, result)
 }
 
 // GetPasteByID godoc

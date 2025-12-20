@@ -41,6 +41,7 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	protected.PUT("/paste/:id", h.pasteHandler.UpdatePaste)
 	protected.DELETE("/paste/:id", h.pasteHandler.DeletePasteByID)
 	protected.GET("/pastes", h.pasteHandler.GetAllPastes)
+	protected.GET("/paste/filter", h.pasteHandler.FilterPastes)
 	protected.GET("/analytics", h.analyticsHandler.GetAllAnalytics)
 	protected.GET("/analytics/user", h.analyticsHandler.GetAllAnalyticsByUser)
 	protected.GET("/analytics/paste", h.analyticsHandler.GetAnalyticsByPasteID)

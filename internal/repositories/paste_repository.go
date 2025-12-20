@@ -199,27 +199,33 @@ DO UPDATE SET views = pastes_analytics.views + 1, updated_at = NOW()`
 	return err
 }
 
-func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.language, p.url, p.expires_at, p.created_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a."pasteID" WHERE user_id = $1 ORDER BY p.created_at DESC`
-	row, err := p.db.Query(ctx, query, userID)
+func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID, limit, offset int) ([]models.PasteOutput, int, error) {
+	// First, get the total count of non-expired pastes for the user
+	countQuery := `SELECT COUNT(*) FROM pastes WHERE user_id = $1 AND (expires_at IS NULL OR expires_at > NOW())`
+	var total int
+	err := p.db.QueryRow(ctx, countQuery, userID).Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pastes for user ID: %w", err)
+		return nil, 0, fmt.Errorf("failed to get total count: %w", err)
+	}
+
+	// Then get the paginated results
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.language, p.url, p.expires_at, p.created_at, COALESCE(a.views, 0) as views 
+		FROM pastes p 
+		LEFT JOIN pastes_analytics a ON p.id = a."pasteID" 
+		WHERE p.user_id = $1 AND (p.expires_at IS NULL OR p.expires_at > NOW())
+		ORDER BY p.created_at DESC 
+		LIMIT $2 OFFSET $3`
+	row, err := p.db.Query(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get pastes for user ID: %w", err)
 	}
 	defer row.Close()
 	pastes, err := pgx.CollectRows(row, pgx.RowToStructByName[models.PasteOutput])
 	if err != nil {
-		return nil, fmt.Errorf("failed to collect pastes: %w", err)
+		return nil, 0, fmt.Errorf("failed to collect pastes: %w", err)
 	}
 
-	// Filter out expired pastes
-	var validPastes []models.PasteOutput
-	for _, paste := range pastes {
-		if paste.ExpiresAt == nil || !paste.ExpiresAt.Before(time.Now()) {
-			validPastes = append(validPastes, paste)
-		}
-	}
-
-	return &validPastes, nil
+	return pastes, total, nil
 }
 
 func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) error {
