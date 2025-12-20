@@ -25,7 +25,7 @@ func NewPasteRepository(db *pgxpool.Pool) *PasteRepository {
 }
 
 func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pasteInput *models.PasteInput) (*models.PasteOutput, error) {
-	query := `INSERT INTO pastes (user_id,title,is_private,content,language,url,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`
+	query := `INSERT INTO pastes (user_id, title, is_private, content, language, url, password, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	title := pasteInput.Title
 	if title == "" {
 		title = "Untitled"
@@ -58,7 +58,7 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url, expiresAt)
+	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url, passwordHash, expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert paste: %w", err)
 	}
@@ -67,11 +67,12 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	}
 
 	// Retrieve the created paste to return it
-	getQuery := `SELECT id,user_id,title,is_private,content,language,url,expires_at,created_at,updated_at FROM pastes WHERE url = $1`
+	getQuery := `SELECT id, user_id, title, is_private, content, language, url, expires_at, created_at, updated_at FROM pastes WHERE url = $1`
 	row, err := p.db.Query(ctx, getQuery, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve created paste: %w", err)
 	}
+	defer row.Close()
 	paste, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[models.PasteOutput])
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect created paste: %w", err)
@@ -94,12 +95,35 @@ func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, pa
 	if patchInput.Language != nil {
 		updateBuilder = updateBuilder.Set("language", *patchInput.Language)
 	}
+
+	// Handle password update with hashing
+	if patchInput.Password != nil {
+		if *patchInput.Password == "" {
+			// Empty password means removing password protection
+			updateBuilder = updateBuilder.Set("password", "")
+			// If is_private is not explicitly set, set it to false when password is removed
+			if patchInput.IsPrivate == nil {
+				updateBuilder = updateBuilder.Set("is_private", false)
+			}
+		} else {
+			// Hash the password before storing
+			hashedPassword, err := utils.HashPassword(*patchInput.Password)
+			if err != nil {
+				return fmt.Errorf("failed to hash password: %w", err)
+			}
+			updateBuilder = updateBuilder.Set("password", hashedPassword)
+			// If is_private is not explicitly set, set it to true when password is provided
+			if patchInput.IsPrivate == nil {
+				updateBuilder = updateBuilder.Set("is_private", true)
+			}
+		}
+	}
+
+	// Handle is_private update (can be set independently or as part of password change)
 	if patchInput.IsPrivate != nil {
 		updateBuilder = updateBuilder.Set("is_private", *patchInput.IsPrivate)
 	}
-	if patchInput.Password != nil {
-		updateBuilder = updateBuilder.Set("password", *patchInput.Password)
-	}
+
 	if patchInput.ExpiresAt != nil {
 		updateBuilder = updateBuilder.Set("expires_at", *patchInput.ExpiresAt)
 	}
@@ -139,14 +163,12 @@ func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, pa
 }
 
 func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAuthenticated bool, userID uuid.UUID) (*models.PasteOutput, error) {
-	query := `SELECT p.id,p.user_id,p.title,p.is_private,p.content,p.language,p.url,p.expires_at ,p.created_at,p.updated_at ,COALESCE(a.views,0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id=a.paste_id WHERE p.id=$1`
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a."pasteID" WHERE p.id = $1`
 	row, err := p.db.Query(ctx, query, pasteID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("no pastes with pasteID=%s", pasteID)
-		}
 		return nil, fmt.Errorf("failed to query paste: %w", err)
 	}
+	defer row.Close()
 	paste, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[models.PasteOutput])
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect paste: %w", err)
@@ -156,13 +178,11 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 	if paste.ExpiresAt != nil && paste.ExpiresAt.Before(time.Now()) {
 		return nil, fmt.Errorf("paste has expired")
 	}
-	// check if it is public
-	// if yes
+	// Check if user is the owner
 	isOwner := isAuthenticated && paste.UserID == userID
 	if !isOwner {
-		// it is public view
-		err := p.incrementViewCount(ctx, pasteID)
-		if err != nil {
+		// Increment view count for non-owner views
+		if err := p.incrementViewCount(ctx, pasteID); err != nil {
 			// Log the error but don't fail the paste retrieval
 			// since view counting is not critical
 			fmt.Printf("Failed to increment view count for paste %s: %v\n", pasteID, err)
@@ -172,28 +192,23 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 }
 
 func (p *PasteRepository) incrementViewCount(ctx context.Context, pasteID uuid.UUID) error {
-	query := `INSERT INTO pastes_analytics (pasteid,views,updated_at) VALUES($1,1,NOW())
-ON CONFLICT (pasteid)
-DO UPDATE SET
-views=paste_analytics.views +1 , updated_at=NOW()
-`
+	query := `INSERT INTO pastes_analytics ("pasteID", views, updated_at) VALUES ($1, 1, NOW())
+ON CONFLICT ("pasteID")
+DO UPDATE SET views = pastes_analytics.views + 1, updated_at = NOW()`
 	_, err := p.db.Exec(ctx, query, pasteID)
 	return err
-
 }
 
 func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID) (*[]models.PasteOutput, error) {
-	sql := `SELECT p.id,p.user_id,p.title,p.is_private,p.language,p.url,p.expires_at,p.crated_at ,COALESCE(a.views,0) as views  FROM pastes p LEFT JOIN pastes_analytics a ON p.id=a.paste_id WHERE user_id=$1 ORDER BY p.created_at DESC`
-	row, err := p.db.Query(ctx, sql, userID)
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.language, p.url, p.expires_at, p.created_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a."pasteID" WHERE user_id = $1 ORDER BY p.created_at DESC`
+	row, err := p.db.Query(ctx, query, userID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("no pastes found for userID : %s", userID)
-		}
-		return nil, fmt.Errorf("failed to get pastes for user ID : %s", userID)
+		return nil, fmt.Errorf("failed to get pastes for user ID: %w", err)
 	}
+	defer row.Close()
 	pastes, err := pgx.CollectRows(row, pgx.RowToStructByName[models.PasteOutput])
 	if err != nil {
-		return nil, fmt.Errorf("failed to collect pastes :  %w", err)
+		return nil, fmt.Errorf("failed to collect pastes: %w", err)
 	}
 
 	// Filter out expired pastes
@@ -245,14 +260,12 @@ func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID
 
 func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string) (*models.PasteOutput, error) {
 	// Query for paste where URL ends with /p/slug
-	query := `SELECT p.id,p.user_id,p.title,p.is_private,p.content,p.language,p.url,p.expires_at,p.created_at,p.updated_at,COALESCE(a.views,0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id=a.paste_id WHERE p.url LIKE $1`
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a."pasteID" WHERE p.url LIKE $1`
 	row, err := p.db.Query(ctx, query, "%/p/"+slug)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("no paste found with slug: %s", slug)
-		}
 		return nil, fmt.Errorf("failed to query paste by slug: %w", err)
 	}
+	defer row.Close()
 	paste, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[models.PasteOutput])
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect paste: %w", err)
@@ -292,7 +305,7 @@ func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pa
 		"p.expires_at",
 		"COALESCE(a.views, 0) as views",
 	).From("pastes p").
-		LeftJoin("pastes_analytics a ON p.id = a.paste_id").
+		LeftJoin("pastes_analytics a ON p.id = a.\"pasteID\"").
 		PlaceholderFormat(sq.Dollar)
 
 	// Exclude expired pastes
@@ -300,7 +313,7 @@ func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pa
 		sq.Eq{"p.expires_at": nil},
 		sq.Gt{"p.expires_at": time.Now()},
 	})
-	// only selected users
+	// Only selected users
 	builder = builder.Where(sq.Eq{"p.user_id": userID})
 	// Apply filters if provided
 	if pasteFilter != nil {
@@ -347,12 +360,9 @@ func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pa
 	// Execute the query
 	rows, err := p.db.Query(ctx, queryStr, args...)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			empty := []models.PasteOutput{}
-			return &empty, nil
-		}
 		return nil, fmt.Errorf("failed to filter pastes: %w", err)
 	}
+	defer rows.Close()
 
 	// Collect rows into structs using pgx
 	pastes, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.PasteOutput])

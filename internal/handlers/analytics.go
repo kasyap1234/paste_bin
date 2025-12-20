@@ -63,13 +63,23 @@ func (h *AnalyticsHandler) CreateAnalytics(c echo.Context) error {
 //	@Router			/analytics [get]
 func (h *AnalyticsHandler) GetAllAnalytics(c echo.Context) error {
 	order := c.QueryParam("order")
-	limit, err := strconv.Atoi(c.QueryParam("limit"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit"})
+	limitStr := c.QueryParam("limit")
+	limit := 10 // default limit
+	if limitStr != "" {
+		var err error
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit"})
+		}
 	}
-	offset, err := strconv.Atoi(c.QueryParam("offset"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset"})
+	offsetStr := c.QueryParam("offset")
+	offset := 0 // default offset
+	if offsetStr != "" {
+		var err error
+		offset, err = strconv.Atoi(offsetStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset"})
+		}
 	}
 	ctx := c.Request().Context()
 	analytics, err := h.analyticsSvc.GetAllAnalytics(ctx, order, limit, offset)
@@ -98,26 +108,35 @@ func (h *AnalyticsHandler) GetAllAnalytics(c echo.Context) error {
 func (h *AnalyticsHandler) GetAllAnalyticsByUser(c echo.Context) error {
 	userIDStr := c.QueryParam("userID")
 	if userIDStr == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "user id is required "})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "user id is required"})
 	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return fmt.Errorf("invalid user id :%s", userIDStr)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": fmt.Sprintf("invalid user id: %s", userIDStr)})
 	}
 	order := c.QueryParam("order")
-	limit, err := strconv.Atoi(c.QueryParam("limit"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit"})
-
+	limitStr := c.QueryParam("limit")
+	limit := 10 // default limit
+	if limitStr != "" {
+		var err error
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit"})
+		}
 	}
-	offset, err := strconv.Atoi(c.QueryParam("offset"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset"})
+	offsetStr := c.QueryParam("offset")
+	offset := 0 // default offset
+	if offsetStr != "" {
+		var err error
+		offset, err = strconv.Atoi(offsetStr)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset"})
+		}
 	}
 	ctx := c.Request().Context()
 	analytics, err := h.analyticsSvc.GetAllAnalyticsByUser(ctx, userID, order, limit, offset)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get all analytics by user "})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get all analytics by user"})
 	}
 	return c.JSON(http.StatusOK, analytics)
 }
@@ -136,13 +155,13 @@ func (h *AnalyticsHandler) GetAllAnalyticsByUser(c echo.Context) error {
 //	@Security		BearerAuth
 //	@Router			/analytics/{id} [get]
 func (h *AnalyticsHandler) GetAnalyticsByID(c echo.Context) error {
-	idStr := c.Param("ID")
+	idStr := c.Param("id")
 	if idStr == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "id is required"})
 	}
 	ID, err := uuid.Parse(idStr)
 	if err != nil {
-		return fmt.Errorf("invalid analytics ID %s", idStr)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": fmt.Sprintf("invalid analytics ID: %s", idStr)})
 	}
 	ctx := c.Request().Context()
 	analytic, err := h.analyticsSvc.GetAnalyticsByID(ctx, ID)
@@ -168,16 +187,16 @@ func (h *AnalyticsHandler) GetAnalyticsByID(c echo.Context) error {
 func (h *AnalyticsHandler) GetAnalyticsByPasteID(c echo.Context) error {
 	pasteIDStr := c.QueryParam("pasteID")
 	if pasteIDStr == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "pasteID is required "})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "pasteID is required"})
 	}
 	pasteID, err := uuid.Parse(pasteIDStr)
 	if err != nil {
-		return fmt.Errorf("invalid pasteID %s", pasteIDStr)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": fmt.Sprintf("invalid pasteID: %s", pasteIDStr)})
 	}
 	ctx := c.Request().Context()
 	analytic, err := h.analyticsSvc.GetAnalyticsByPasteID(ctx, pasteID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get analytics by pasteID "})
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get analytics by pasteID"})
 	}
 	return c.JSON(http.StatusOK, analytic)
 }
