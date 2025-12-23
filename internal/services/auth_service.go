@@ -52,7 +52,7 @@ func (a *AuthService) Login(ctx context.Context, loginInput *models.LoginInput) 
 		return nil, fmt.Errorf("invalid email or password")
 	}
 
-	if !utils.VerifyPassword(user.Password, loginInput.Password) {
+	if !utils.VerifyPassword(user.PasswordHash, loginInput.Password) {
 		return nil, fmt.Errorf("invalid email or password")
 	}
 	token, err := a.jwtManager.GenerateToken(user.ID, user.Email, 24*time.Hour)

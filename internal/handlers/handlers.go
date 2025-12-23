@@ -47,4 +47,5 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	protected.GET("/analytics/paste", h.analyticsHandler.GetAnalyticsByPasteID)
 	protected.POST("/create-analytics", h.analyticsHandler.CreateAnalytics)
 	protected.GET("/analytics/:id", h.analyticsHandler.GetAnalyticsByID)
+	protected.GET("/paste/:id",h.pasteHandler.GetPasteByID)
 }

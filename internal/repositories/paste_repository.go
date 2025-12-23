@@ -82,56 +82,42 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 }
 
 func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, patchInput *models.PatchPaste) error {
-	// Build the update query using squirrel
-	updateBuilder := sq.Update("pastes").PlaceholderFormat(sq.Dollar)
+	// Convert patch input to a map of updates, skipping nil fields
+	updates := utils.StructToMap(patchInput, "db")
 
-	// Add fields to update if they are provided (not nil)
-	if patchInput.Title != nil {
-		updateBuilder = updateBuilder.Set("title", *patchInput.Title)
-	}
-	if patchInput.Content != nil {
-		updateBuilder = updateBuilder.Set("content", *patchInput.Content)
-	}
-	if patchInput.Language != nil {
-		updateBuilder = updateBuilder.Set("language", *patchInput.Language)
-	}
-
-	// Handle password update with hashing
+	// Handle special password logic
 	if patchInput.Password != nil {
-		if *patchInput.Password == "" {
+		password := *patchInput.Password
+		if password == "" {
 			// Empty password means removing password protection
-			updateBuilder = updateBuilder.Set("password", "")
+			updates["password"] = ""
 			// If is_private is not explicitly set, set it to false when password is removed
 			if patchInput.IsPrivate == nil {
-				updateBuilder = updateBuilder.Set("is_private", false)
+				updates["is_private"] = false
 			}
 		} else {
 			// Hash the password before storing
-			hashedPassword, err := utils.HashPassword(*patchInput.Password)
+			hashedPassword, err := utils.HashPassword(password)
 			if err != nil {
 				return fmt.Errorf("failed to hash password: %w", err)
 			}
-			updateBuilder = updateBuilder.Set("password", hashedPassword)
+			updates["password"] = hashedPassword
 			// If is_private is not explicitly set, set it to true when password is provided
 			if patchInput.IsPrivate == nil {
-				updateBuilder = updateBuilder.Set("is_private", true)
+				updates["is_private"] = true
 			}
 		}
 	}
 
-	// Handle is_private update (can be set independently or as part of password change)
-	if patchInput.IsPrivate != nil {
-		updateBuilder = updateBuilder.Set("is_private", *patchInput.IsPrivate)
-	}
-
-	if patchInput.ExpiresAt != nil {
-		updateBuilder = updateBuilder.Set("expires_at", *patchInput.ExpiresAt)
-	}
-
 	// Always update the updated_at timestamp
-	updateBuilder = updateBuilder.Set("updated_at", time.Now()).Where(sq.Eq{"id": pasteID})
+	updates["updated_at"] = time.Now()
 
-	// Check if any fields were provided to update
+	// Build the update query using squirrel
+	updateBuilder := sq.Update("pastes").
+		SetMap(updates).
+		Where(sq.Eq{"id": pasteID}).
+		PlaceholderFormat(sq.Dollar)
+
 	query, args, err := updateBuilder.ToSql()
 	if err != nil {
 		return fmt.Errorf("failed to build update query: %w", err)

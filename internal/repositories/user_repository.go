@@ -59,3 +59,24 @@ func (u *UserRepository) ExistsUser(ctx context.Context, email string) (bool, er
 	}
 	return true, nil // User exists
 }
+
+func (u *UserRepository) CreateUser(ctx context.Context, user *models.User) error {
+	query := `INSERT INTO users (id, name, email, password_hash) VALUES ($1, $2, $3, $4)`
+	_, err := u.db.Exec(ctx, query, user.ID, user.Name, user.Email, user.PasswordHash)
+	if err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+	return nil
+}
+
+
+func(u*UserRepository)UpdateUser(ctx context.Context,user *models.User)error{
+	query:=`UPDATE users SET name=$2,email=$3,password_hash=$4 WHERE id=$1`
+	_,err:=u.db.Exec(ctx,query,user.ID,user.Name,user.Email,user.PasswordHash)
+	if err!=nil{
+		return fmt.Errorf("failed to update user: %w",err)
+	}
+	return nil
+}
+
+

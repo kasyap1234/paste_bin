@@ -26,10 +26,10 @@ func (a *AuthRepository) Register(ctx context.Context, registerInput *models.Reg
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 	user := &models.User{
-		ID:       uuid.New(),
-		Name:     registerInput.Name,
-		Email:    registerInput.Email,
-		Password: hashedPassword,
+		ID:           uuid.New(),
+		Name:         registerInput.Name,
+		Email:        registerInput.Email,
+		PasswordHash: hashedPassword,
 	}
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
@@ -38,7 +38,7 @@ func (a *AuthRepository) Register(ctx context.Context, registerInput *models.Reg
 	defer tx.Rollback(ctx)
 	query := `INSERT INTO users(id,name,email,password_hash) VALUES ($1,$2,$3,$4)`
 
-	_, err = tx.Exec(ctx, query, user.ID, user.Name, user.Email, user.Password)
+	_, err = tx.Exec(ctx, query, user.ID, user.Name, user.Email, user.PasswordHash)
 	if err != nil {
 		return fmt.Errorf("failed to insert user: %w", err)
 	}
