@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
+	"pastebin/pkg/utils"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -35,32 +36,32 @@ func NewAuthHandler(authSvc *services.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(c echo.Context) error {
 	var RegisterInput models.RegisterInput
 	if err := c.Bind(&RegisterInput); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
+		return utils.SendError(c, http.StatusBadRequest, "invalid request")
 	}
 
 	// Validate input
 	if RegisterInput.Name == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "name is required"})
+		return utils.SendError(c, http.StatusBadRequest, "name is required")
 	}
 	if len(RegisterInput.Name) < 2 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "name must be at least 2 characters"})
+		return utils.SendError(c, http.StatusBadRequest, "name must be at least 2 characters")
 	}
 	if RegisterInput.Email == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "email is required"})
+		return utils.SendError(c, http.StatusBadRequest, "email is required")
 	}
 	if !strings.Contains(RegisterInput.Email, "@") {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid email format"})
+		return utils.SendError(c, http.StatusBadRequest, "invalid email format")
 	}
 	if len(RegisterInput.Password) < 6 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must be at least 6 characters"})
+		return utils.SendError(c, http.StatusBadRequest, "password must be at least 6 characters")
 	}
 
 	ctx := c.Request().Context()
 	if err := h.authSvc.Register(ctx, &RegisterInput); err != nil {
 		fmt.Printf("Register error: %v\n", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "failed to register"})
+		return utils.SendError(c, http.StatusInternalServerError, "failed to register")
 	}
-	return c.JSON(http.StatusCreated, echo.Map{"message": "user registered"})
+	return utils.SendSuccess(c, http.StatusCreated, nil, "user registered")
 }
 
 // Login godoc
@@ -78,25 +79,25 @@ func (h *AuthHandler) Register(c echo.Context) error {
 func (h *AuthHandler) Login(c echo.Context) error {
 	var loginInput models.LoginInput
 	if err := c.Bind(&loginInput); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request"})
+		return utils.SendError(c, http.StatusBadRequest, "invalid request")
 	}
 
 	// Validate input
 	if loginInput.Email == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "email is required"})
+		return utils.SendError(c, http.StatusBadRequest, "email is required")
 	}
 	if !strings.Contains(loginInput.Email, "@") {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid email format"})
+		return utils.SendError(c, http.StatusBadRequest, "invalid email format")
 	}
 	if len(loginInput.Password) < 6 {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "password must be at least 6 characters"})
+		return utils.SendError(c, http.StatusBadRequest, "password must be at least 6 characters")
 	}
 
 	ctx := c.Request().Context()
 	resp, err := h.authSvc.Login(ctx, &loginInput)
 	if err != nil {
 		fmt.Printf("Login error: %v\n", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "unauthorized"})
+		return utils.SendError(c, http.StatusUnauthorized, "unauthorized")
 	}
-	return c.JSON(http.StatusOK, resp)
+	return utils.SendSuccess(c, http.StatusOK, resp, "Login successful")
 }

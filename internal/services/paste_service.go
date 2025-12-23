@@ -20,22 +20,9 @@ func NewPasteService(pasteRepo *repositories.PasteRepository) *PasteService {
 	}
 }
 func (s *PasteService) CreatePaste(ctx context.Context, createPaste *models.PasteInput) (*models.PasteOutput, error) {
-	val := ctx.Value("userIDKey")
-	if val == nil {
-		return nil, fmt.Errorf("missing userID in the context")
-	}
-
-	userID, ok := val.(uuid.UUID)
-	if !ok {
-		str, ok := val.(string)
-		if !ok {
-			return nil, fmt.Errorf("user ID is not a valid string")
-		}
-		var err error
-		userID, err = uuid.Parse(str)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse userID : %w", err)
-		}
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get userID from context: %w", err)
 	}
 	return s.pasteRepo.CreatePaste(ctx, userID, createPaste)
 }

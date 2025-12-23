@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
+	"pastebin/pkg/utils"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -37,13 +38,13 @@ func NewAnalyticsHandler(analyticsSvc *services.AnalyticsService) *AnalyticsHand
 func (h *AnalyticsHandler) CreateAnalytics(c echo.Context) error {
 	var createAnalytics models.AnalyticsInput
 	if err := c.Bind(&createAnalytics); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+		return utils.SendError(c, http.StatusBadRequest, "invalid request body")
 	}
 	ctx := c.Request().Context()
 	if err := h.analyticsSvc.CreateAnalytics(ctx, createAnalytics.PasteID, createAnalytics.URL); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to create analytics"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to create analytics")
 	}
-	return c.JSON(http.StatusCreated, echo.Map{"message": "analytics created"})
+	return utils.SendSuccess(c, http.StatusCreated, nil, "analytics created")
 }
 
 // GetAllAnalytics godoc
@@ -69,7 +70,7 @@ func (h *AnalyticsHandler) GetAllAnalytics(c echo.Context) error {
 		var err error
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit"})
+			return utils.SendError(c, http.StatusBadRequest, "invalid limit")
 		}
 	}
 	offsetStr := c.QueryParam("offset")
@@ -78,15 +79,15 @@ func (h *AnalyticsHandler) GetAllAnalytics(c echo.Context) error {
 		var err error
 		offset, err = strconv.Atoi(offsetStr)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset"})
+			return utils.SendError(c, http.StatusBadRequest, "invalid offset")
 		}
 	}
 	ctx := c.Request().Context()
 	analytics, err := h.analyticsSvc.GetAllAnalytics(ctx, order, limit, offset)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get all analytics"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to get all analytics")
 	}
-	return c.JSON(http.StatusOK, analytics)
+	return utils.SendSuccess(c, http.StatusOK, analytics, "all analytics")
 }
 
 // GetAllAnalyticsByUser godoc
@@ -108,11 +109,11 @@ func (h *AnalyticsHandler) GetAllAnalytics(c echo.Context) error {
 func (h *AnalyticsHandler) GetAllAnalyticsByUser(c echo.Context) error {
 	userIDStr := c.QueryParam("userID")
 	if userIDStr == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "user id is required"})
+		return utils.SendError(c, http.StatusBadRequest, "user id is required")
 	}
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": fmt.Sprintf("invalid user id: %s", userIDStr)})
+		return utils.SendError(c, http.StatusBadRequest, fmt.Sprintf("invalid user id: %s", userIDStr))
 	}
 	order := c.QueryParam("order")
 	limitStr := c.QueryParam("limit")
@@ -121,7 +122,7 @@ func (h *AnalyticsHandler) GetAllAnalyticsByUser(c echo.Context) error {
 		var err error
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit"})
+			return utils.SendError(c, http.StatusBadRequest, "invalid limit")
 		}
 	}
 	offsetStr := c.QueryParam("offset")
@@ -130,15 +131,15 @@ func (h *AnalyticsHandler) GetAllAnalyticsByUser(c echo.Context) error {
 		var err error
 		offset, err = strconv.Atoi(offsetStr)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset"})
+			return utils.SendError(c, http.StatusBadRequest, "invalid offset")
 		}
 	}
 	ctx := c.Request().Context()
 	analytics, err := h.analyticsSvc.GetAllAnalyticsByUser(ctx, userID, order, limit, offset)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get all analytics by user"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to get all analytics by user")
 	}
-	return c.JSON(http.StatusOK, analytics)
+	return utils.SendSuccess(c, http.StatusOK, analytics, "user analytics")
 }
 
 // GetAnalyticsByID godoc
@@ -157,18 +158,18 @@ func (h *AnalyticsHandler) GetAllAnalyticsByUser(c echo.Context) error {
 func (h *AnalyticsHandler) GetAnalyticsByID(c echo.Context) error {
 	idStr := c.Param("id")
 	if idStr == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "id is required"})
+		return utils.SendError(c, http.StatusBadRequest, "id is required")
 	}
 	ID, err := uuid.Parse(idStr)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": fmt.Sprintf("invalid analytics ID: %s", idStr)})
+		return utils.SendError(c, http.StatusBadRequest, fmt.Sprintf("invalid analytics ID: %s", idStr))
 	}
 	ctx := c.Request().Context()
 	analytic, err := h.analyticsSvc.GetAnalyticsByID(ctx, ID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get analytics by ID"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to get analytics by ID")
 	}
-	return c.JSON(http.StatusOK, analytic)
+	return utils.SendSuccess(c, http.StatusOK, analytic, "analytics details")
 }
 
 // GetAnalyticsByPasteID godoc
@@ -187,16 +188,16 @@ func (h *AnalyticsHandler) GetAnalyticsByID(c echo.Context) error {
 func (h *AnalyticsHandler) GetAnalyticsByPasteID(c echo.Context) error {
 	pasteIDStr := c.QueryParam("pasteID")
 	if pasteIDStr == "" {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "pasteID is required"})
+		return utils.SendError(c, http.StatusBadRequest, "pasteID is required")
 	}
 	pasteID, err := uuid.Parse(pasteIDStr)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": fmt.Sprintf("invalid pasteID: %s", pasteIDStr)})
+		return utils.SendError(c, http.StatusBadRequest, fmt.Sprintf("invalid pasteID: %s", pasteIDStr))
 	}
 	ctx := c.Request().Context()
 	analytic, err := h.analyticsSvc.GetAnalyticsByPasteID(ctx, pasteID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get analytics by pasteID"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to get analytics by pasteID")
 	}
-	return c.JSON(http.StatusOK, analytic)
+	return utils.SendSuccess(c, http.StatusOK, analytic, "paste analytics")
 }

@@ -5,6 +5,7 @@ import (
 	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
+	"pastebin/pkg/utils"
 	"strconv"
 	"time"
 
@@ -39,7 +40,7 @@ func NewPasteHandler(pasteSvc *services.PasteService) *PasteHandler {
 func (p *PasteHandler) CreatePaste(c echo.Context) error {
 	var createPaste models.PasteInput
 	if err := c.Bind(&createPaste); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "please use valid paste"})
+		return utils.SendError(c, http.StatusBadRequest, "please use valid paste")
 	}
 
 	// Handle expiry parameter from query string
@@ -47,7 +48,7 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 	if expiresIn != "" {
 		duration, err := time.ParseDuration(expiresIn)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid expires_in format, use duration format like '24h', '7d', etc."})
+			return utils.SendError(c, http.StatusBadRequest, "invalid expires_in format, use duration format like '24h', '7d', etc.")
 		}
 		expiresAt := time.Now().Add(duration)
 		createPaste.ExpiresAt = &expiresAt
@@ -56,10 +57,10 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 	ctx := c.Request().Context()
 	paste, err := p.pasteSvc.CreatePaste(ctx, &createPaste)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to create a paste"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to create a paste")
 	}
 
-	return c.JSON(http.StatusCreated, paste)
+	return utils.SendSuccess(c, http.StatusCreated, paste, "paste created successfully")
 }
 
 // UpdatePaste godoc
@@ -77,15 +78,26 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 //	@Security		BearerAuth
 //	@Router			/paste/{id} [put]
 func (p *PasteHandler) UpdatePaste(c echo.Context) error {
+	// Get paste ID from URL path parameter
+	pasteIDParam := c.Param("id")
+	if pasteIDParam == "" {
+		return utils.SendError(c, http.StatusBadRequest, "paste ID is required")
+	}
+	pasteID, err := uuid.Parse(pasteIDParam)
+	if err != nil {
+		return utils.SendError(c, http.StatusBadRequest, "invalid paste ID")
+	}
+
 	var patchPaste models.PatchPaste
 	if err := c.Bind(&patchPaste); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+		return utils.SendError(c, http.StatusBadRequest, "invalid request body")
 	}
+
 	ctx := c.Request().Context()
-	if err := p.pasteSvc.UpdatePaste(ctx, *patchPaste.ID, &patchPaste); err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to update paste"})
+	if err := p.pasteSvc.UpdatePaste(ctx, pasteID, &patchPaste); err != nil {
+		return utils.SendError(c, http.StatusInternalServerError, "unable to update paste")
 	}
-	return c.JSON(http.StatusOK, echo.Map{"message": "paste updated "})
+	return utils.SendSuccess(c, http.StatusOK, nil, "paste updated successfully")
 }
 
 // GetAllPastes godoc
@@ -114,7 +126,7 @@ func (p *PasteHandler) GetAllPastes(c echo.Context) error {
 		var err error
 		limit, err = strconv.Atoi(limitStr)
 		if err != nil || limit < 1 {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid limit parameter"})
+			return utils.SendError(c, http.StatusBadRequest, "invalid limit parameter")
 		}
 	}
 
@@ -123,16 +135,16 @@ func (p *PasteHandler) GetAllPastes(c echo.Context) error {
 		var err error
 		offset, err = strconv.Atoi(offsetStr)
 		if err != nil || offset < 0 {
-			return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid offset parameter"})
+			return utils.SendError(c, http.StatusBadRequest, "invalid offset parameter")
 		}
 	}
 
 	result, err := p.pasteSvc.GetAllPastes(c.Request().Context(), userID, limit, offset)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get pastes"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to get pastes")
 	}
 
-	return c.JSON(http.StatusOK, result)
+	return utils.SendSuccess(c, http.StatusOK, result, "pastes retrieved")
 }
 
 // GetPasteByID godoc
@@ -165,9 +177,9 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 	}
 	paste, err := p.pasteSvc.GetPasteByID(ctx, pasteID, isAuthenticated, requestUserID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to get paste"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to get paste")
 	}
-	return c.JSON(http.StatusOK, paste)
+	return utils.SendSuccess(c, http.StatusOK, paste, "paste details")
 }
 
 // DeletePasteByID godoc
@@ -196,10 +208,9 @@ func (p *PasteHandler) DeletePasteByID(c echo.Context) error {
 	ctx := c.Request().Context()
 	err = p.pasteSvc.DeletePasteByID(ctx, pasteID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "cannot delete by paste id "})
-
+		return utils.SendError(c, http.StatusInternalServerError, "cannot delete by paste id")
 	}
-	return c.JSON(http.StatusOK, echo.Map{"error": "deleted"})
+	return utils.SendSuccess(c, http.StatusOK, nil, "paste deleted successfully")
 }
 
 // GetPublicPaste godoc
@@ -224,10 +235,10 @@ func (p *PasteHandler) GetPublicPaste(c echo.Context) error {
 	ctx := c.Request().Context()
 	paste, err := p.pasteSvc.GetPasteBySlug(ctx, slug)
 	if err != nil {
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "paste not found"})
+		return utils.SendError(c, http.StatusNotFound, "paste not found")
 	}
 
-	return c.JSON(http.StatusOK, paste)
+	return utils.SendSuccess(c, http.StatusOK, paste, "paste details")
 }
 
 // GetRawPaste godoc
@@ -267,7 +278,7 @@ func (p *PasteHandler) FilterPastes(c echo.Context) error {
 	ctx := c.Request().Context()
 	pastes, err := p.pasteSvc.FilterPastes(ctx, &filter)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "unable to filter pastes"})
+		return utils.SendError(c, http.StatusInternalServerError, "unable to filter pastes")
 	}
-	return c.JSON(http.StatusOK, pastes)
+	return utils.SendSuccess(c, http.StatusOK, pastes, "filtered pastes")
 }

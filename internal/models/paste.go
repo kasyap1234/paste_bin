@@ -24,6 +24,8 @@ type PasteOutput struct {
 	URL       string     `json:"url"`
 	Views     int        `json:"views"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 type PatchPaste struct {
@@ -38,9 +40,9 @@ type PatchPaste struct {
 }
 
 type PaginatedPastesResponse struct {
-	Pastes    []PasteOutput `json:"pastes"`
-	Total     int           `json:"total"`
-	Limit     int           `json:"limit"`
-	Offset    int           `json:"offset"`
-	HasMore   bool          `json:"has_more"`
+	Pastes  []PasteOutput `json:"pastes"`
+	Total   int           `json:"total"`
+	Limit   int           `json:"limit"`
+	Offset  int           `json:"offset"`
+	HasMore bool          `json:"has_more"`
 }

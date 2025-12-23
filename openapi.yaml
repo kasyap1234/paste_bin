@@ -1,0 +1,937 @@
+openapi: 3.0.0
+info:
+  title: Pastebin API
+  description: A simple pastebin service with analytics and user authentication
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: http://www.swagger.io/support
+    email: support@swagger.io
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+paths:
+  /register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Register a new user with name, email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: user registered
+        '400':
+          description: Invalid request or validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Failed to register user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /login:
+    post:
+      tags:
+        - Auth
+      summary: Login user
+      description: Authenticate user and return JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request or validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized - invalid credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /paste:
+    post:
+      tags:
+        - Pastes
+      summary: Create a new paste
+      description: Create a new paste with optional expiration
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: expires_in
+          in: query
+          description: Expiration duration (e.g., '24h', '7d', '1m')
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasteInput'
+      responses:
+        '201':
+          description: Paste created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasteOutput'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to create paste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+    get:
+      tags:
+        - Pastes
+      summary: Get all pastes for user
+      description: Retrieve all pastes for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of pastes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasteOutput'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get pastes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /pastes:
+    get:
+      tags:
+        - Pastes
+      summary: Get all pastes for user
+      description: Retrieve all pastes for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of pastes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasteOutput'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get pastes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /paste/{id}:
+    get:
+      tags:
+        - Pastes
+      summary: Get paste by ID
+      description: Retrieve a specific paste by its ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Paste ID (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Paste data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasteOutput'
+        '400':
+          description: Invalid paste ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get paste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+    put:
+      tags:
+        - Pastes
+      summary: Update a paste
+      description: Update an existing paste by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Paste ID (UUID)
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchPaste'
+      responses:
+        '200':
+          description: Paste updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to update paste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+    delete:
+      tags:
+        - Pastes
+      summary: Delete paste by ID
+      description: Delete a specific paste by its ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Paste ID (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Paste deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '400':
+          description: Invalid paste ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to delete paste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /p/{slug}:
+    get:
+      tags:
+        - Pastes
+      summary: Get public paste by slug
+      description: Retrieve a public paste by its URL slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Paste slug
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paste data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasteOutput'
+        '400':
+          description: Invalid slug
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Paste not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get paste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /raw/{slug}:
+    get:
+      tags:
+        - Pastes
+      summary: Get raw paste content by slug
+      description: Retrieve raw text content of a public paste by its URL slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Paste slug
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Raw paste content
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid slug
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '404':
+          description: Paste not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get paste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /analytics:
+    get:
+      tags:
+        - Analytics
+      summary: Get all analytics
+      description: Retrieve all analytics with pagination
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order
+          in: query
+          required: false
+          description: Sort order
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Limit number of results
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          required: false
+          description: Offset for pagination
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of analytics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Analytics'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /analytics/user:
+    get:
+      tags:
+        - Analytics
+      summary: Get analytics by user
+      description: Retrieve analytics for a specific user with pagination
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userID
+          in: query
+          required: true
+          description: User ID (UUID)
+          schema:
+            type: string
+            format: uuid
+        - name: order
+          in: query
+          required: false
+          description: Sort order
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Limit number of results
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          required: false
+          description: Offset for pagination
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of analytics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Analytics'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /analytics/paste:
+    get:
+      tags:
+        - Analytics
+      summary: Get analytics by paste ID
+      description: Retrieve analytics for a specific paste
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pasteID
+          in: query
+          required: true
+          description: Paste ID (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analytics'
+        '400':
+          description: Invalid paste ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /create-analytics:
+    post:
+      tags:
+        - Analytics
+      summary: Create analytics entry
+      description: Create a new analytics entry for a paste
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyticsInput'
+      responses:
+        '201':
+          description: Analytics created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to create analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /analytics/{id}:
+    get:
+      tags:
+        - Analytics
+      summary: Get analytics by ID
+      description: Retrieve specific analytics entry by its ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Analytics ID (UUID)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Analytics'
+        '400':
+          description: Invalid ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to get analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterInput:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        password:
+          type: string
+          minLength: 6
+          example: password123
+
+    LoginInput:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        password:
+          type: string
+          minLength: 6
+          example: password123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token for authentication
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    PasteInput:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          example: My Code Snippet
+        content:
+          type: string
+          example: function hello() { console.log("world"); }
+        language:
+          type: string
+          example: javascript
+        password:
+          type: string
+          example: secret123
+        expires_at:
+          type: string
+          format: date-time
+          example: 2024-12-31T23:59:59Z
+
+    PasteOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        is_private:
+          type: boolean
+        content:
+          type: string
+        language:
+          type: string
+        url:
+          type: string
+        views:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    PatchPaste:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        content:
+          type: string
+        language:
+          type: string
+        is_private:
+          type: boolean
+        password:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    AnalyticsInput:
+      type: object
+      required:
+        - paste_id
+        - url
+      properties:
+        paste_id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        url:
+          type: string
+          example: https://example.com/p/abc123
+
+    Analytics:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        paste_id:
+          type: string
+          format: uuid
+        url:
+          type: string
+        views:
+          type: integer
