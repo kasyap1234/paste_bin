@@ -175,7 +175,8 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 	if isAuthenticated {
 		requestUserID = userID
 	}
-	paste, err := p.pasteSvc.GetPasteByID(ctx, pasteID, isAuthenticated, requestUserID)
+	password := c.QueryParam("password")
+	paste, err := p.pasteSvc.GetPasteByID(ctx, pasteID, isAuthenticated, requestUserID, password)
 	if err != nil {
 		return utils.SendError(c, http.StatusInternalServerError, "unable to get paste")
 	}
