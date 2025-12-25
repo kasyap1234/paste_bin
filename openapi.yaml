@@ -198,6 +198,73 @@ paths:
                   error:
                     type: string
 
+
+  /paste/filter:
+    get:
+      tags:
+        - Pastes
+      summary: Filter pastes
+      description: Filter pastes by criteria
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: languages
+          in: query
+          description: Filter by languages
+          schema:
+            type: array
+            items:
+              type: string
+        - name: date_from
+          in: query
+          description: Filter by start date (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          description: Filter by end date (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: sort_by
+          in: query
+          description: Field to sort by
+          schema:
+            type: string
+        - name: sort_order
+          in: query
+          description: Sort order (asc or desc)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Filtered list of pastes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PasteOutput'
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Unable to filter pastes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
   /pastes:
     get:
       tags:
@@ -845,6 +912,10 @@ components:
         title:
           type: string
           example: My Code Snippet
+        expires_in:
+          type: string
+          example: 24h
+          description: Expiration duration (e.g., '24h', '7d')
         content:
           type: string
           example: function hello() { console.log("world"); }

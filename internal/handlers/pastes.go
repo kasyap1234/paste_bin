@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"pastebin/internal/auth"
 	"pastebin/internal/models"
@@ -45,6 +46,9 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 
 	// Handle expiry parameter from query string
 	expiresIn := c.QueryParam("expires_in")
+	if expiresIn == "" {
+		expiresIn = createPaste.ExpiresIn
+	}
 	if expiresIn != "" {
 		duration, err := time.ParseDuration(expiresIn)
 		if err != nil {
@@ -57,6 +61,7 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 	ctx := c.Request().Context()
 	paste, err := p.pasteSvc.CreatePaste(ctx, &createPaste)
 	if err != nil {
+		fmt.Printf("CreatePaste error: %v\n", err)
 		return utils.SendError(c, http.StatusInternalServerError, "unable to create a paste")
 	}
 
@@ -150,14 +155,16 @@ func (p *PasteHandler) GetAllPastes(c echo.Context) error {
 // GetPasteByID godoc
 //
 //	@Summary		Get paste by ID
-//	@Description	Retrieve a specific paste by its ID
+//	@Description	Retrieve a specific paste by its ID. Password required for password-protected pastes if user is not the owner.
 //	@Tags			pastes
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path		string				true	"Paste ID"
-//	@Success		200	{object}	models.PasteOutput	"Paste data"
-//	@Failure		400	{object}	map[string]string	"Invalid paste ID"
-//	@Failure		500	{object}	map[string]string	"Unable to get paste"
+//	@Param			id		path		string				true	"Paste ID"
+//	@Param			password	query		string				false	"Password for password-protected pastes"
+//	@Success		200		{object}	models.PasteOutput	"Paste data"
+//	@Failure		400		{object}	map[string]string	"Invalid paste ID or missing password"
+//	@Failure		401		{object}	map[string]string	"Invalid password"
+//	@Failure		500		{object}	map[string]string	"Unable to get paste"
 //	@Router			/paste/{id} [get]
 func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 	pasteIDParam := c.Param("id")
@@ -168,6 +175,10 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste ID is invalid"})
 	}
+
+	// Get password from query parameter if provided
+	password := c.QueryParam("password")
+
 	ctx := c.Request().Context()
 	userID, err := auth.GetUserIDFromContext(ctx)
 	isAuthenticated := err == nil
@@ -175,9 +186,21 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 	if isAuthenticated {
 		requestUserID = userID
 	}
-	password := c.QueryParam("password")
 	paste, err := p.pasteSvc.GetPasteByID(ctx, pasteID, isAuthenticated, requestUserID, password)
 	if err != nil {
+		// Handle specific error messages
+		if err.Error() == "password required to access this paste" {
+			return utils.SendError(c, http.StatusBadRequest, err.Error())
+		}
+		if err.Error() == "invalid password" {
+			return utils.SendError(c, http.StatusUnauthorized, err.Error())
+		}
+		if err.Error() == "paste not found" {
+			return utils.SendError(c, http.StatusNotFound, err.Error())
+		}
+		if err.Error() == "paste has expired" {
+			return utils.SendError(c, http.StatusNotFound, err.Error())
+		}
 		return utils.SendError(c, http.StatusInternalServerError, "unable to get paste")
 	}
 	return utils.SendSuccess(c, http.StatusOK, paste, "paste details")
@@ -229,12 +252,14 @@ func (p *PasteHandler) DeletePasteByID(c echo.Context) error {
 //	@Router			/p/{slug} [get]
 func (p *PasteHandler) GetPublicPaste(c echo.Context) error {
 	slug := c.Param("slug")
+	password := c.QueryParam("password")
+
 	if slug == "" {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "paste slug is required"})
 	}
 
 	ctx := c.Request().Context()
-	paste, err := p.pasteSvc.GetPasteBySlug(ctx, slug)
+	paste, err := p.pasteSvc.GetPasteBySlug(ctx, slug, password)
 	if err != nil {
 		return utils.SendError(c, http.StatusNotFound, "paste not found")
 	}
@@ -262,7 +287,9 @@ func (p *PasteHandler) GetRawPaste(c echo.Context) error {
 	}
 
 	ctx := c.Request().Context()
-	paste, err := p.pasteSvc.GetPasteBySlug(ctx, slug)
+	password := c.QueryParam("password")
+
+	paste, err := p.pasteSvc.GetPasteBySlug(ctx, slug, password)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "paste not found"})
 	}
@@ -274,7 +301,7 @@ func (p *PasteHandler) GetRawPaste(c echo.Context) error {
 func (p *PasteHandler) FilterPastes(c echo.Context) error {
 	var filter models.PasteFilters
 	if err := c.Bind(&filter); err != nil {
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request body"})
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "invalid request parameters"})
 	}
 	ctx := c.Request().Context()
 	pastes, err := p.pasteSvc.FilterPastes(ctx, &filter)

@@ -15,6 +15,8 @@ type Analytics struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+
+
 type AnalyticsInput struct {
 	PasteID uuid.UUID `json:"paste_id"`
 	URL     string    `json:"url"`

@@ -104,6 +104,6 @@ func (p *PasteService) FilterPastes(ctx context.Context, filter *models.PasteFil
 	return pastes, nil
 }
 
-func (p *PasteService) GetPasteBySlug(ctx context.Context, slug string) (*models.PasteOutput, error) {
-	return p.pasteRepo.GetPasteBySlug(ctx, slug)
+func (p *PasteService) GetPasteBySlug(ctx context.Context, slug, password string) (*models.PasteOutput, error) {
+	return p.pasteRepo.GetPasteBySlug(ctx, slug, password)
 }

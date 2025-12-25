@@ -67,7 +67,7 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	}
 
 	// Retrieve the created paste to return it
-	getQuery := `SELECT id, user_id, title, is_private, content, password, language, url, expires_at, created_at, updated_at FROM pastes WHERE url = $1`
+	getQuery := `SELECT id, user_id, title, is_private, content, password, language, url, expires_at, created_at, updated_at, 0 as views FROM pastes WHERE url = $1`
 	row, err := p.db.Query(ctx, getQuery, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve created paste: %w", err)
@@ -260,7 +260,7 @@ func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID
 	return nil
 }
 
-func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string) (*models.PasteOutput, error) {
+func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string, password string) (*models.PasteOutput, error) {
 	// Query for paste where URL ends with /p/slug
 	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a."pasteID" WHERE p.url LIKE $1`
 	row, err := p.db.Query(ctx, query, "%/p/"+slug)
@@ -280,7 +280,19 @@ func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string) (*mod
 
 	// Check if paste is private (should not be accessible publicly)
 	if paste.IsPrivate {
-		return nil, fmt.Errorf("paste is private")
+
+		if paste.PasswordHash == "" {
+			return nil, fmt.Errorf("password is required")
+		}
+		if !utils.VerifyPassword(paste.PasswordHash, password) {
+			return nil, fmt.Errorf("invalid password")
+
+		}
+
+		if err := p.incrementViewCount(ctx, paste.ID); err != nil {
+			fmt.Printf("Failed to increment view count for paste %s: %v\n", paste.ID, err)
+		}
+		return &paste, nil
 	}
 
 	// Increment view count for public access

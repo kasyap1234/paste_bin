@@ -11,6 +11,7 @@ type PasteInput struct {
 	Content   string     `json:"content"`
 	Language  string     `json:"language"`
 	Password  string     `json:"password"`
+	ExpiresIn string     `json:"expires_in,omitempty"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
