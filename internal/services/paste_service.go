@@ -19,7 +19,7 @@ type PasteService struct {
 func NewPasteService(pasteRepo *repositories.PasteRepository, logger zerolog.Logger) *PasteService {
 	return &PasteService{
 		pasteRepo: pasteRepo,
-		logger: logger,
+		logger:    logger,
 	}
 }
 func (p *PasteService) CreatePaste(ctx context.Context, createPaste *models.PasteInput) (*models.PasteOutput, error) {
@@ -43,10 +43,14 @@ func (p *PasteService) UpdatePaste(ctx context.Context, pasteID uuid.UUID, patch
 		return fmt.Errorf("unable to get userID from context: %w", err)
 	}
 
-	_, err = p.GetPasteByID(ctx, pasteID, true, userID, "")
+	paste, err := p.GetPasteByID(ctx, pasteID, true, userID, "")
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to get paste by ID")
 		return fmt.Errorf("unable to find paste with ID: %s ", pasteID)
+	}
+
+	if paste.UserID != userID {
+		return fmt.Errorf("user does not have permission to update this paste")
 	}
 	err = p.pasteRepo.UpdatePaste(ctx, pasteID, patchPaste)
 	if err != nil {
@@ -116,7 +120,7 @@ func (p *PasteService) DeletePasteByID(ctx context.Context, pasteID uuid.UUID) e
 		p.logger.Error().Err(err).Msg("failed to delete paste by ID")
 		return fmt.Errorf("unable to delete paste by ID: %w", err)
 	}
-	return nil					
+	return nil
 }
 
 func (p *PasteService) FilterPastes(ctx context.Context, filter *models.PasteFilters) (*[]models.PasteOutput, error) {
@@ -125,7 +129,6 @@ func (p *PasteService) FilterPastes(ctx context.Context, filter *models.PasteFil
 		return nil, fmt.Errorf("filter is nil")
 	}
 
-	
 	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to get userID from context")
@@ -135,7 +138,7 @@ func (p *PasteService) FilterPastes(ctx context.Context, filter *models.PasteFil
 		p.logger.Error().Msg("userID is nil")
 		return nil, fmt.Errorf("userID is nil")
 	}
-	
+
 	pastes, err := p.pasteRepo.FilterPastes(ctx, userID, filter)
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to filter pastes")
@@ -145,24 +148,14 @@ func (p *PasteService) FilterPastes(ctx context.Context, filter *models.PasteFil
 }
 
 func (p *PasteService) GetPasteBySlug(ctx context.Context, slug, password string) (*models.PasteOutput, error) {
-	userID, err := auth.GetUserIDFromContext(ctx)
-	if err != nil {
-		p.logger.Error().Err(err).Msg("failed to get userID from context")
-		return nil, fmt.Errorf("unable to get userID from context: %w", err)
-	}
-	if userID == uuid.Nil {
-		p.logger.Error().Msg("userID is nil")
-		return nil, fmt.Errorf("userID is nil")
-	}
+	userID, _ := auth.GetUserIDFromContext(ctx) // Optional auth for public routes
+
 	paste, err := p.pasteRepo.GetPasteBySlug(ctx, slug, password)
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to get paste by slug")
 		return nil, fmt.Errorf("unable to get paste by slug: %w", err)
 	}
-	if paste == nil {
-		p.logger.Error().Msg("paste is nil")
-		return nil, fmt.Errorf("unable to get paste by slug: %w", err)
-	}
+
 	if paste.IsPrivate && paste.UserID != userID {
 		p.logger.Error().Msg("user does not have permission to view this paste")
 		return nil, fmt.Errorf("user does not have permission to view this paste")

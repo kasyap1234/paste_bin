@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
@@ -61,7 +60,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	ctx := c.Request().Context()
 	if err := h.authSvc.Register(ctx, &RegisterInput); err != nil {
-		fmt.Printf("Register error: %v\n", err)
+		h.logger.Error().Err(err).Msg("failed to register user")
 		return utils.SendError(c, http.StatusInternalServerError, "failed to register user")
 	}
 	return utils.SendSuccess(c, http.StatusCreated, nil, "user registered successfully")

@@ -29,7 +29,20 @@ func (s *AnalyticsService) CreateAnalytics(ctx context.Context, pasteID uuid.UUI
 	if url == "" {
 		return fmt.Errorf("unable to create analytics for empty url")
 	}
-	return s.analyticsRepo.CreateAnalytics(ctx, pasteID, url)
+	analytics, err := s.analyticsRepo.GetAnalyticsByPasteID(ctx, pasteID)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get analytics by pasteID")
+		return fmt.Errorf("failed to get analytics by pasteID: %w", err)
+	}
+	if analytics == nil {
+		err = s.analyticsRepo.CreateAnalytics(ctx, pasteID, url)
+		if err != nil {
+			s.logger.Error().Err(err).Msg("failed to create analytics")
+			return fmt.Errorf("failed to create analytics: %w", err)
+		}
+		return nil
+	}
+	return nil
 }
 
 func (s *AnalyticsService) GetAnalyticsByPasteID(ctx context.Context, pasteID uuid.UUID) (*models.Analytics, error) {
@@ -59,8 +72,15 @@ func (s *AnalyticsService) GetAnalyticsByURL(ctx context.Context, url string) (*
 	if url == "" {
 		return nil, fmt.Errorf("unable to get analytics for empty url %s ", url)
 	}
-
-	return s.analyticsRepo.GetAnalyticsByURL(ctx, url)
+	analytics, err := s.analyticsRepo.GetAnalyticsByURL(ctx, url)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get analytics by url")
+		return nil, fmt.Errorf("failed to get analytics by url: %w", err)
+	}
+	if analytics == nil {
+		return nil, fmt.Errorf("analytics not found for url %s", url)
+	}
+	return analytics, nil
 }
 
 func (s *AnalyticsService) GetAllAnalytics(ctx context.Context, order string, limit int, offset int) ([]models.Analytics, error) {
@@ -76,7 +96,7 @@ func (s *AnalyticsService) GetAllAnalytics(ctx context.Context, order string, li
 	return s.analyticsRepo.GetAllAnalytics(ctx, order, limit, offset)
 }
 
-func (s *AnalyticsService) GetAllAnalyticsByUser(ctx context.Context, userID uuid.UUID, order string, limit, offset int) (*[]models.Analytics, error) {
+func (s *AnalyticsService) GetAllAnalyticsByUser(ctx context.Context, userID uuid.UUID, order string, limit, offset int) ([]models.Analytics, error) {
 	if userID == uuid.Nil {
 		return nil, fmt.Errorf("unable to get analytics for nil userID")
 	}
@@ -98,5 +118,4 @@ func (s *AnalyticsService) GetAllAnalyticsByUser(ctx context.Context, userID uui
 		return nil, fmt.Errorf("unable to get all analytics by user: %w", err)
 	}
 	return analytics, nil
-
 }

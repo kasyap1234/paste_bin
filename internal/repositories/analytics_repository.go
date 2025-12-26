@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"pastebin/internal/models"
 
@@ -47,6 +48,9 @@ func (a *AnalyticsRepository) GetAnalyticsByPasteID(ctx context.Context, pasteID
 	defer row.Close()
 	analytics, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.Analytics])
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to collect analytics: %w", err)
 	}
 	return &analytics, nil
@@ -89,6 +93,9 @@ func (a *AnalyticsRepository) GetAnalyticsByURL(ctx context.Context, url string)
 	defer row.Close()
 	analytics, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.Analytics])
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("failed to collect analytics: %w", err)
 	}
 	return &analytics, nil
@@ -119,7 +126,7 @@ func (a *AnalyticsRepository) GetAllAnalytics(ctx context.Context, order string,
 	return analytics, nil
 }
 
-func (a *AnalyticsRepository) GetAllAnalyticsByUser(ctx context.Context, userID uuid.UUID, order string, limit, offset int) (*[]models.Analytics, error) {
+func (a *AnalyticsRepository) GetAllAnalyticsByUser(ctx context.Context, userID uuid.UUID, order string, limit, offset int) ([]models.Analytics, error) {
 	// ORDER BY cannot use parameters, so we need to validate and use string interpolation carefully
 	// Only allow safe column names
 	allowedOrders := map[string]string{
@@ -141,8 +148,7 @@ func (a *AnalyticsRepository) GetAllAnalyticsByUser(ctx context.Context, userID 
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect rows: %w", err)
 	}
-	return &analytics, nil
-
+	return analytics, nil
 }
 
 func (a *AnalyticsRepository) GetAnalyticsByID(ctx context.Context, id uuid.UUID) (*models.Analytics, error) {

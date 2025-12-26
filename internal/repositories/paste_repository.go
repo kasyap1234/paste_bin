@@ -178,11 +178,7 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 	}
 	if !isOwner {
 		// Increment view count for non-owner views
-		if err := p.incrementViewCount(ctx, pasteID); err != nil {
-			// Log the error but don't fail the paste retrieval
-			// since view counting is not critical
-			fmt.Printf("Failed to increment view count for paste %s: %v\n", pasteID, err)
-		}
+		_ = p.incrementViewCount(ctx, pasteID)
 	}
 	return &paste, nil
 }
@@ -281,7 +277,7 @@ func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string, passw
 	// Check if paste is private (should not be accessible publicly)
 	if paste.IsPrivate {
 
-		if paste.PasswordHash == "" {
+		if password == "" {
 			return nil, fmt.Errorf("password required")
 		}
 		if !utils.VerifyPassword(paste.PasswordHash, password) {
@@ -289,18 +285,12 @@ func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string, passw
 
 		}
 
-		if err := p.incrementViewCount(ctx, paste.ID); err != nil {
-			fmt.Printf("Failed to increment view count for paste %s: %v\n", paste.ID, err)
-		}
 		return &paste, nil
 	}
 
-	// Increment view count for public access
-	err = p.incrementViewCount(ctx, paste.ID)
-	if err != nil {
+	// Increment view count
+	if err := p.incrementViewCount(ctx, paste.ID); err != nil {
 		// Log the error but don't fail the paste retrieval
-		// since view counting is not critical
-		fmt.Printf("Failed to increment view count for paste %s: %v\n", paste.ID, err)
 	}
 
 	return &paste, nil

@@ -2,16 +2,16 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/repositories"
 	"pastebin/pkg/utils"
-	"errors"
 	"time"
-	"github.com/rs/zerolog"
+
 	"github.com/jackc/pgx/v5"
+	"github.com/rs/zerolog"
 )
 
 type AuthService struct {
@@ -21,8 +21,8 @@ type AuthService struct {
 	logger     zerolog.Logger
 }
 
-	func NewAuthService(authRepo *repositories.AuthRepository, userRepo *repositories.UserRepository, jwtMgr *auth.JWTManager, logger zerolog.Logger) *AuthService {
-		return &AuthService{
+func NewAuthService(authRepo *repositories.AuthRepository, userRepo *repositories.UserRepository, jwtMgr *auth.JWTManager, logger zerolog.Logger) *AuthService {
+	return &AuthService{
 		authRepo:   authRepo,
 		jwtManager: jwtMgr,
 		userRepo:   userRepo,
@@ -35,16 +35,16 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 	// only proceed if user does not exists
 	ok, err := a.userRepo.ExistsUser(ctx, registerInput.Email)
 	if err != nil {
-		log.Printf("ExistsUser error: %v", err)
+		a.logger.Error().Err(err).Msg("error checking existing user")
 		return fmt.Errorf("error checking existing user: %w", err)
 	}
-	
+
 	if ok {
 		return fmt.Errorf("user already exists with email: %s", registerInput.Email)
 	}
 	regErr := a.authRepo.Register(ctx, registerInput)
 	if regErr != nil {
-		log.Printf("Register error: %v", regErr)
+		a.logger.Error().Err(regErr).Msg("error registering user")
 		return regErr
 	}
 	return nil
@@ -52,9 +52,9 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 
 func (a *AuthService) Login(ctx context.Context, loginInput *models.LoginInput) (*models.LoginResponse, error) {
 	user, err := a.userRepo.GetUserByEmail(ctx, loginInput.Email)
-	if errors.Is(err,pgx.ErrNoRows){
+	if errors.Is(err, pgx.ErrNoRows) {
 		a.logger.Error().Msg("user not found")
-		return nil,fmt.Errorf("user not found: %w", err)
+		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
 	if err != nil {
