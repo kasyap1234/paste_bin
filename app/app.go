@@ -47,15 +47,19 @@ func New() (*App, error) {
 	userRepo := repositories.NewUserRepository(db)
 	pasteRepo := repositories.NewPasteRepository(db)
 	analyticsRepo := repositories.NewAnalyticsRepository(db)
+	profileRepo := repositories.NewProfileRepository(db)
 
 	authSvc := services.NewAuthService(authRepo, userRepo, jwtMgr, logger)
 	pasteSvc := services.NewPasteService(pasteRepo, logger)
 	analyticsSvc := services.NewAnalyticsService(analyticsRepo, logger)
 
+	profileSvc := services.NewProfileService(profileRepo, logger)
+
 	authHandler := handlers.NewAuthHandler(authSvc, logger)
 	pasteHandler := handlers.NewPasteHandler(pasteSvc, logger)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc, logger)
-	handlerSet := handlers.NewHandlers(authHandler, pasteHandler, analyticsHandler)
+	profileHandler := handlers.NewProfileHandler(profileSvc, &logger)
+	handlerSet := handlers.NewHandlers(authHandler, pasteHandler, analyticsHandler, profileHandler)
 
 	e := echo.New()
 	e.HideBanner = true

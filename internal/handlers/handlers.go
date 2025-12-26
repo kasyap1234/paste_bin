@@ -9,14 +9,17 @@ type Handlers struct {
 	authHandler      *AuthHandler
 	pasteHandler     *PasteHandler
 	analyticsHandler *AnalyticsHandler
+	profileHandler   *ProfileHandler
 }
 
-func NewHandlers(authHandler *AuthHandler, pasteHandler *PasteHandler, analyticsHandler *AnalyticsHandler) *Handlers {
+func NewHandlers(authHandler *AuthHandler, pasteHandler *PasteHandler, analyticsHandler *AnalyticsHandler, profileHandler *ProfileHandler) *Handlers {
 	return &Handlers{
 		authHandler:      authHandler,
 		pasteHandler:     pasteHandler,
 		analyticsHandler: analyticsHandler,
+		profileHandler:   profileHandler,
 	}
+
 }
 
 func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFunc) {
@@ -47,6 +50,6 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	protected.GET("/analytics/paste", h.analyticsHandler.GetAnalyticsByPasteID)
 	protected.POST("/create-analytics", h.analyticsHandler.CreateAnalytics)
 	protected.GET("/analytics/:id", h.analyticsHandler.GetAnalyticsByID)
+	protected.GET("/profile", h.profileHandler.GetProfileHandler)
+	protected.PUT("/profile", h.profileHandler.UpdateProfileHandler)
 }
-
-
