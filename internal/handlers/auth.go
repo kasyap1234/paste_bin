@@ -103,3 +103,4 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	}
 	return utils.SendSuccess(c, http.StatusOK, resp, "login successful")
 }
+
