@@ -149,7 +149,7 @@ func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, pa
 }
 
 func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAuthenticated bool, userID uuid.UUID, password string) (*models.PasteOutput, error) {
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a."pasteID" WHERE p.id = $1`
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a.paste_id WHERE p.id = $1`
 	row, err := p.db.Query(ctx, query, pasteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query paste: %w", err)
@@ -169,7 +169,7 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 	// if the paste is private and the user is not the owner then check if the password is correct
 	if paste.IsPrivate && !isOwner {
 		if password == "" {
-			return nil, fmt.Errorf("password is required")
+			return nil, fmt.Errorf("password required")
 		}
 		if !utils.VerifyPassword(paste.PasswordHash, password) {
 			return nil, fmt.Errorf("invalid password")
@@ -188,9 +188,9 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 }
 
 func (p *PasteRepository) incrementViewCount(ctx context.Context, pasteID uuid.UUID) error {
-	query := `INSERT INTO pastes_analytics ("pasteID", views, updated_at) VALUES ($1, 1, NOW())
-ON CONFLICT ("pasteID")
-DO UPDATE SET views = pastes_analytics.views + 1, updated_at = NOW()`
+	query := `INSERT INTO pastes_analytics (paste_id, views, updated_at) VALUES ($1, 1, NOW())
+ ON CONFLICT (paste_id)
+ DO UPDATE SET views = pastes_analytics.views + 1, updated_at = NOW()`
 	_, err := p.db.Exec(ctx, query, pasteID)
 	return err
 }
@@ -205,11 +205,11 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID, li
 	}
 
 	// Then get the paginated results
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.language, p.url, p.expires_at, p.created_at, COALESCE(a.views, 0) as views 
-		FROM pastes p 
-		LEFT JOIN pastes_analytics a ON p.id = a."pasteID" 
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.language, p.url, p.expires_at, p.created_at, COALESCE(a.views, 0) as views
+		FROM pastes p
+		LEFT JOIN pastes_analytics a ON p.id = a.paste_id
 		WHERE p.user_id = $1 AND (p.expires_at IS NULL OR p.expires_at > NOW())
-		ORDER BY p.created_at DESC 
+		ORDER BY p.created_at DESC
 		LIMIT $2 OFFSET $3`
 	row, err := p.db.Query(ctx, query, userID, limit, offset)
 	if err != nil {
@@ -262,7 +262,7 @@ func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID
 
 func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string, password string) (*models.PasteOutput, error) {
 	// Query for paste where URL ends with /p/slug
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a."pasteID" WHERE p.url LIKE $1`
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a.paste_id WHERE p.url LIKE $1`
 	row, err := p.db.Query(ctx, query, "%/p/"+slug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query paste by slug: %w", err)
@@ -282,7 +282,7 @@ func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string, passw
 	if paste.IsPrivate {
 
 		if paste.PasswordHash == "" {
-			return nil, fmt.Errorf("password is required")
+			return nil, fmt.Errorf("password required")
 		}
 		if !utils.VerifyPassword(paste.PasswordHash, password) {
 			return nil, fmt.Errorf("invalid password")
@@ -319,7 +319,7 @@ func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pa
 		"p.expires_at",
 		"COALESCE(a.views, 0) as views",
 	).From("pastes p").
-		LeftJoin("pastes_analytics a ON p.id = a.\"pasteID\"").
+		LeftJoin("pastes_analytics a ON p.id = a.paste_id").
 		PlaceholderFormat(sq.Dollar)
 
 	// Exclude expired pastes

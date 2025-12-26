@@ -22,7 +22,7 @@ func NewAnalyticsRepository(db *pgxpool.Pool) *AnalyticsRepository {
 }
 
 func (a *AnalyticsRepository) CreateAnalytics(ctx context.Context, pasteID uuid.UUID, url string) error {
-	query := `INSERT INTO pastes_analytics ("pasteID", url) VALUES ($1, $2)`
+	query := `INSERT INTO pastes_analytics (paste_id, url) VALUES ($1, $2)`
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
@@ -39,10 +39,10 @@ func (a *AnalyticsRepository) CreateAnalytics(ctx context.Context, pasteID uuid.
 }
 
 func (a *AnalyticsRepository) GetAnalyticsByPasteID(ctx context.Context, pasteID uuid.UUID) (*models.Analytics, error) {
-	query := `SELECT * FROM pastes_analytics WHERE "pasteID" = $1`
+	query := `SELECT * FROM pastes_analytics WHERE paste_id = $1`
 	row, err := a.db.Query(ctx, query, pasteID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get analytics by pasteID: %w", err)
+		return nil, fmt.Errorf("failed to get analytics by paste_id: %w", err)
 	}
 	defer row.Close()
 	analytics, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.Analytics])
@@ -56,7 +56,7 @@ func (a *AnalyticsRepository) IncrementViews(ctx context.Context, pasteID uuid.U
 	// Build the update query using squirrel
 	query := sq.Update("pastes_analytics").
 		Set("views", sq.Expr("views+1")).
-		Where(sq.Eq{"\"pasteID\"": pasteID}).
+		Where(sq.Eq{"paste_id": pasteID}).
 		PlaceholderFormat(sq.Dollar)
 
 	queryStr, args, err := query.ToSql()
@@ -131,7 +131,7 @@ func (a *AnalyticsRepository) GetAllAnalyticsByUser(ctx context.Context, userID 
 	if orderCol, ok := allowedOrders[order]; ok {
 		orderBy = orderCol + " DESC"
 	}
-	query := fmt.Sprintf(`SELECT a.* FROM pastes_analytics a JOIN pastes p ON a."pasteID" = p.id WHERE p.user_id = $1 ORDER BY %s LIMIT $2 OFFSET $3`, orderBy)
+	query := fmt.Sprintf(`SELECT a.* FROM pastes_analytics a JOIN pastes p ON a.paste_id = p.id WHERE p.user_id = $1 ORDER BY %s LIMIT $2 OFFSET $3`, orderBy)
 	rows, err := a.db.Query(ctx, query, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all analytics by user: %w", err)

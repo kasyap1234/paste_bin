@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"pastebin/internal/auth"
-	"pastebin/internal/config"
 	"pastebin/internal/database"
 	"pastebin/internal/handlers"
 	"pastebin/internal/repositories"
@@ -38,7 +37,7 @@ func New() (*App, error) {
 	}
 	jwtMgr := auth.NewJWTManager(jwtSecret)
 
-	db, err := database.InitDB(&config.DBConfig{})
+	db, err := database.InitDB()
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to initialize database")
 		return nil, fmt.Errorf("init db: %w", err)
@@ -49,13 +48,13 @@ func New() (*App, error) {
 	pasteRepo := repositories.NewPasteRepository(db)
 	analyticsRepo := repositories.NewAnalyticsRepository(db)
 
-	authSvc := services.NewAuthService(authRepo, userRepo, jwtMgr)
-	pasteSvc := services.NewPasteService(pasteRepo)
-	analyticsSvc := services.NewAnalyticsService(analyticsRepo)
+	authSvc := services.NewAuthService(authRepo, userRepo, jwtMgr, logger)
+	pasteSvc := services.NewPasteService(pasteRepo, logger)
+	analyticsSvc := services.NewAnalyticsService(analyticsRepo, logger)
 
-	authHandler := handlers.NewAuthHandler(authSvc)
-	pasteHandler := handlers.NewPasteHandler(pasteSvc)
-	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc)
+	authHandler := handlers.NewAuthHandler(authSvc, logger)
+	pasteHandler := handlers.NewPasteHandler(pasteSvc, logger)
+	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc, logger)
 	handlerSet := handlers.NewHandlers(authHandler, pasteHandler, analyticsHandler)
 
 	e := echo.New()

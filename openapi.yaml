@@ -36,29 +36,44 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: user registered
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: user registered
         '400':
           description: Invalid request or validation error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Failed to register user
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /login:
     post:
@@ -78,34 +93,60 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoginResponse'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: Login successful
+                      data:
+                        $ref: '#/components/schemas/LoginResponse'
         '400':
           description: Invalid request or validation error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized - invalid credentials
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /paste:
     post:
@@ -134,70 +175,60 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PasteOutput'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: paste created successfully
+                      data:
+                        $ref: '#/components/schemas/PasteOutput'
         '400':
           description: Invalid request
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to create paste
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-
-    get:
-      tags:
-        - Pastes
-      summary: Get all pastes for user
-      description: Retrieve all pastes for the authenticated user
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: List of pastes
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PasteOutput'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-        '500':
-          description: Unable to get pastes
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /paste/filter:
     get:
@@ -243,70 +274,137 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PasteOutput'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: filtered pastes
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PasteOutput'
         '400':
           description: Invalid parameters
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to filter pastes
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /pastes:
     get:
       tags:
         - Pastes
       summary: Get all pastes for user
-      description: Retrieve all pastes for the authenticated user
+      description: Retrieve all pastes for the authenticated user with pagination
       security:
         - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Number of pastes to return (default: 10, max: 100)
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          required: false
+          description: Number of pastes to skip (default: 0)
+          schema:
+            type: integer
       responses:
         '200':
-          description: List of pastes
+          description: Paginated list of pastes
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PasteOutput'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: pastes retrieved
+                      data:
+                        $ref: '#/components/schemas/PaginatedPastesResponse'
+        '400':
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get pastes
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /paste/{id}:
     get:
       tags:
         - Pastes
       summary: Get paste by ID
-      description: Retrieve a specific paste by its ID
+      description: Retrieve a specific paste by its ID. Password required for password-protected pastes if user is not the owner.
       parameters:
         - name: id
           in: path
@@ -315,31 +413,86 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: password
+          in: query
+          required: false
+          description: Password for password-protected pastes
+          schema:
+            type: string
       responses:
         '200':
           description: Paste data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PasteOutput'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: paste details
+                      data:
+                        $ref: '#/components/schemas/PasteOutput'
         '400':
-          description: Invalid paste ID
+          description: Invalid paste ID or missing password
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
+        '401':
+          description: Invalid password
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
+        '404':
+          description: Paste not found or expired
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get paste
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
     put:
       tags:
@@ -368,37 +521,58 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: paste updated successfully
         '400':
           description: Invalid request
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to update paste
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
     delete:
       tags:
@@ -421,37 +595,58 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: paste deleted successfully
         '400':
           description: Invalid paste ID
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to delete paste
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /p/{slug}:
     get:
@@ -466,40 +661,72 @@ paths:
           description: Paste slug
           schema:
             type: string
+        - name: password
+          in: query
+          required: false
+          description: Password for password-protected pastes
+          schema:
+            type: string
       responses:
         '200':
           description: Paste data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PasteOutput'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: paste details
+                      data:
+                        $ref: '#/components/schemas/PasteOutput'
         '400':
           description: Invalid slug
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '404':
           description: Paste not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get paste
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /raw/{slug}:
     get:
@@ -514,6 +741,12 @@ paths:
           description: Paste slug
           schema:
             type: string
+        - name: password
+          in: query
+          required: false
+          description: Password for password-protected pastes
+          schema:
+            type: string
       responses:
         '200':
           description: Raw paste content
@@ -526,28 +759,43 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '404':
           description: Paste not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get paste
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /analytics:
     get:
@@ -582,36 +830,62 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Analytics'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: all analytics
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Analytics'
         '400':
           description: Invalid parameters
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get analytics
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /analytics/user:
     get:
@@ -653,36 +927,62 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Analytics'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: user analytics
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Analytics'
         '400':
           description: Invalid parameters
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get analytics
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /analytics/paste:
     get:
@@ -706,34 +1006,60 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Analytics'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: paste analytics
+                      data:
+                        $ref: '#/components/schemas/Analytics'
         '400':
           description: Invalid paste ID
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get analytics
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /create-analytics:
     post:
@@ -755,37 +1081,58 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: analytics created
         '400':
           description: Invalid request
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to create analytics
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
   /analytics/{id}:
     get:
@@ -809,34 +1156,60 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Analytics'
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: analytics details
+                      data:
+                        $ref: '#/components/schemas/Analytics'
         '400':
           description: Invalid ID
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '401':
           description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
         '500':
           description: Unable to get analytics
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
+                allOf:
+                  - $ref: '#/components/schemas/APIResponse'
+                  - type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: false
+                      error:
+                        type: string
 
 components:
   securitySchemes:
@@ -846,6 +1219,34 @@ components:
       bearerFormat: JWT
 
   schemas:
+    APIResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+        error:
+          type: string
+
+    PaginatedPastesResponse:
+      type: object
+      properties:
+        pastes:
+          type: array
+          items:
+            $ref: '#/components/schemas/PasteOutput'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+
     RegisterInput:
       type: object
       required:
@@ -955,6 +1356,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     PatchPaste:
       type: object
@@ -962,22 +1369,30 @@ components:
         id:
           type: string
           format: uuid
+          nullable: true
         user_id:
           type: string
           format: uuid
+          nullable: true
         title:
           type: string
+          nullable: true
         content:
           type: string
+          nullable: true
         language:
           type: string
+          nullable: true
         is_private:
           type: boolean
+          nullable: true
         password:
           type: string
+          nullable: true
         expires_at:
           type: string
           format: date-time
+          nullable: true
 
     AnalyticsInput:
       type: object
@@ -1006,3 +1421,9 @@ components:
           type: string
         views:
           type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

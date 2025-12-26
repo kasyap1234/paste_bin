@@ -7,33 +7,34 @@ import (
 	"pastebin/internal/repositories"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 type AnalyticsService struct {
 	analyticsRepo *repositories.AnalyticsRepository
+	logger        zerolog.Logger
 }
 
-func NewAnalyticsService(analyticsRepo *repositories.AnalyticsRepository) *AnalyticsService {
+func NewAnalyticsService(analyticsRepo *repositories.AnalyticsRepository, logger zerolog.Logger) *AnalyticsService {
 	return &AnalyticsService{
 		analyticsRepo: analyticsRepo,
+		logger:        logger,
 	}
 }
 
 func (s *AnalyticsService) CreateAnalytics(ctx context.Context, pasteID uuid.UUID, url string) error {
+	if pasteID == uuid.Nil {
+		return fmt.Errorf("unable to create analytics for nil pasteID")
+	}
 	if url == "" {
-		return fmt.Errorf("unable to create analytics for empty url %s ", url)
+		return fmt.Errorf("unable to create analytics for empty url")
 	}
-	_, err := s.analyticsRepo.GetAnalyticsByPasteID(ctx, pasteID)
-	if err != nil {
-		return fmt.Errorf("unable to get analytics by pasteID %s : %w", pasteID, err)
-	}
-
 	return s.analyticsRepo.CreateAnalytics(ctx, pasteID, url)
 }
 
 func (s *AnalyticsService) GetAnalyticsByPasteID(ctx context.Context, pasteID uuid.UUID) (*models.Analytics, error) {
 	if pasteID == uuid.Nil {
-		return nil, fmt.Errorf("unable to get analytics for nil pasteID")
+		return nil, fmt.Errorf("unable to get analytics for nil pasteID %s", pasteID)
 	}
 	return s.analyticsRepo.GetAnalyticsByPasteID(ctx, pasteID)
 }
@@ -68,7 +69,6 @@ func (s *AnalyticsService) GetAllAnalytics(ctx context.Context, order string, li
 	}
 	if offset < 0 {
 		offset = 0
-
 	}
 	if order == "" {
 		order = "created_at DESC"
@@ -92,6 +92,11 @@ func (s *AnalyticsService) GetAllAnalyticsByUser(ctx context.Context, userID uui
 	if offset < 0 {
 		offset = 0
 	}
-	return s.analyticsRepo.GetAllAnalyticsByUser(ctx, userID, order, limit, offset)
+	analytics, err := s.analyticsRepo.GetAllAnalyticsByUser(ctx, userID, order, limit, offset)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get all analytics by user")
+		return nil, fmt.Errorf("unable to get all analytics by user: %w", err)
+	}
+	return analytics, nil
 
 }

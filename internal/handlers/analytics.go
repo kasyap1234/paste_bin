@@ -10,15 +10,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 )
 
 type AnalyticsHandler struct {
 	analyticsSvc *services.AnalyticsService
+	logger       zerolog.Logger
 }
 
-func NewAnalyticsHandler(analyticsSvc *services.AnalyticsService) *AnalyticsHandler {
+func NewAnalyticsHandler(analyticsSvc *services.AnalyticsService, logger zerolog.Logger) *AnalyticsHandler {
 	return &AnalyticsHandler{
 		analyticsSvc: analyticsSvc,
+		logger:       logger,
 	}
 }
 
@@ -38,13 +41,14 @@ func NewAnalyticsHandler(analyticsSvc *services.AnalyticsService) *AnalyticsHand
 func (h *AnalyticsHandler) CreateAnalytics(c echo.Context) error {
 	var createAnalytics models.AnalyticsInput
 	if err := c.Bind(&createAnalytics); err != nil {
+		h.logger.Error().Err(err).Msg("failed to bind create analytics")
 		return utils.SendError(c, http.StatusBadRequest, "invalid request body")
 	}
 	ctx := c.Request().Context()
 	if err := h.analyticsSvc.CreateAnalytics(ctx, createAnalytics.PasteID, createAnalytics.URL); err != nil {
-		return utils.SendError(c, http.StatusInternalServerError, "unable to create analytics")
+		return utils.SendError(c, http.StatusInternalServerError, "failed to create analytics")
 	}
-	return utils.SendSuccess(c, http.StatusCreated, nil, "analytics created")
+	return utils.SendSuccess(c, http.StatusCreated, nil, "analytics created successfully")
 }
 
 // GetAllAnalytics godoc
@@ -85,9 +89,9 @@ func (h *AnalyticsHandler) GetAllAnalytics(c echo.Context) error {
 	ctx := c.Request().Context()
 	analytics, err := h.analyticsSvc.GetAllAnalytics(ctx, order, limit, offset)
 	if err != nil {
-		return utils.SendError(c, http.StatusInternalServerError, "unable to get all analytics")
+		return utils.SendError(c, http.StatusInternalServerError, "failed to retrieve analytics")
 	}
-	return utils.SendSuccess(c, http.StatusOK, analytics, "all analytics")
+	return utils.SendSuccess(c, http.StatusOK, analytics, "analytics retrieved successfully")
 }
 
 // GetAllAnalyticsByUser godoc
@@ -137,9 +141,9 @@ func (h *AnalyticsHandler) GetAllAnalyticsByUser(c echo.Context) error {
 	ctx := c.Request().Context()
 	analytics, err := h.analyticsSvc.GetAllAnalyticsByUser(ctx, userID, order, limit, offset)
 	if err != nil {
-		return utils.SendError(c, http.StatusInternalServerError, "unable to get all analytics by user")
+		return utils.SendError(c, http.StatusInternalServerError, "failed to retrieve analytics by user")
 	}
-	return utils.SendSuccess(c, http.StatusOK, analytics, "user analytics")
+	return utils.SendSuccess(c, http.StatusOK, analytics, "user analytics retrieved successfully")
 }
 
 // GetAnalyticsByID godoc
@@ -162,14 +166,14 @@ func (h *AnalyticsHandler) GetAnalyticsByID(c echo.Context) error {
 	}
 	ID, err := uuid.Parse(idStr)
 	if err != nil {
-		return utils.SendError(c, http.StatusBadRequest, fmt.Sprintf("invalid analytics ID: %s", idStr))
+		return utils.SendError(c, http.StatusBadRequest, fmt.Sprintf("invalid analytics id: %s", idStr))
 	}
 	ctx := c.Request().Context()
 	analytic, err := h.analyticsSvc.GetAnalyticsByID(ctx, ID)
 	if err != nil {
-		return utils.SendError(c, http.StatusInternalServerError, "unable to get analytics by ID")
+		return utils.SendError(c, http.StatusInternalServerError, "failed to retrieve analytics")
 	}
-	return utils.SendSuccess(c, http.StatusOK, analytic, "analytics details")
+	return utils.SendSuccess(c, http.StatusOK, analytic, "analytics retrieved successfully")
 }
 
 // GetAnalyticsByPasteID godoc
@@ -188,16 +192,16 @@ func (h *AnalyticsHandler) GetAnalyticsByID(c echo.Context) error {
 func (h *AnalyticsHandler) GetAnalyticsByPasteID(c echo.Context) error {
 	pasteIDStr := c.QueryParam("pasteID")
 	if pasteIDStr == "" {
-		return utils.SendError(c, http.StatusBadRequest, "pasteID is required")
+		return utils.SendError(c, http.StatusBadRequest, "paste id is required")
 	}
 	pasteID, err := uuid.Parse(pasteIDStr)
 	if err != nil {
-		return utils.SendError(c, http.StatusBadRequest, fmt.Sprintf("invalid pasteID: %s", pasteIDStr))
+		return utils.SendError(c, http.StatusBadRequest, fmt.Sprintf("invalid paste id: %s", pasteIDStr))
 	}
 	ctx := c.Request().Context()
 	analytic, err := h.analyticsSvc.GetAnalyticsByPasteID(ctx, pasteID)
 	if err != nil {
-		return utils.SendError(c, http.StatusInternalServerError, "unable to get analytics by pasteID")
+		return utils.SendError(c, http.StatusInternalServerError, "failed to retrieve analytics by paste id")
 	}
-	return utils.SendSuccess(c, http.StatusOK, analytic, "paste analytics")
+	return utils.SendSuccess(c, http.StatusOK, analytic, "paste analytics retrieved successfully")
 }

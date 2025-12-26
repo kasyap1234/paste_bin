@@ -9,15 +9,18 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 )
 
 type AuthHandler struct {
 	authSvc *services.AuthService
+	logger  zerolog.Logger
 }
 
-func NewAuthHandler(authSvc *services.AuthService) *AuthHandler {
+func NewAuthHandler(authSvc *services.AuthService, logger zerolog.Logger) *AuthHandler {
 	return &AuthHandler{
 		authSvc: authSvc,
+		logger:  logger,
 	}
 }
 
@@ -59,9 +62,9 @@ func (h *AuthHandler) Register(c echo.Context) error {
 	ctx := c.Request().Context()
 	if err := h.authSvc.Register(ctx, &RegisterInput); err != nil {
 		fmt.Printf("Register error: %v\n", err)
-		return utils.SendError(c, http.StatusInternalServerError, "failed to register")
+		return utils.SendError(c, http.StatusInternalServerError, "failed to register user")
 	}
-	return utils.SendSuccess(c, http.StatusCreated, nil, "user registered")
+	return utils.SendSuccess(c, http.StatusCreated, nil, "user registered successfully")
 }
 
 // Login godoc
@@ -96,8 +99,8 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	ctx := c.Request().Context()
 	resp, err := h.authSvc.Login(ctx, &loginInput)
 	if err != nil {
-		fmt.Printf("Login error: %v\n", err)
-		return utils.SendError(c, http.StatusUnauthorized, "unauthorized")
+		h.logger.Error().Err(err).Msg("failed to login")
+		return utils.SendError(c, http.StatusUnauthorized, "invalid email or password")
 	}
-	return utils.SendSuccess(c, http.StatusOK, resp, "Login successful")
+	return utils.SendSuccess(c, http.StatusOK, resp, "login successful")
 }
