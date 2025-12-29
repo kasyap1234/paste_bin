@@ -50,12 +50,13 @@ func New() (*App, error) {
 	profileRepo := repositories.NewProfileRepository(db)
 
 	authSvc := services.NewAuthService(authRepo, userRepo, jwtMgr, logger)
+	userSvc := services.NewUserService(userRepo, logger)
 	pasteSvc := services.NewPasteService(pasteRepo, logger)
 	analyticsSvc := services.NewAnalyticsService(analyticsRepo, logger)
 
 	profileSvc := services.NewProfileService(profileRepo, logger)
 
-	authHandler := handlers.NewAuthHandler(authSvc, logger)
+	authHandler := handlers.NewAuthHandler(authSvc, userSvc, logger)
 	pasteHandler := handlers.NewPasteHandler(pasteSvc, logger)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc, logger)
 	profileHandler := handlers.NewProfileHandler(profileSvc, &logger)

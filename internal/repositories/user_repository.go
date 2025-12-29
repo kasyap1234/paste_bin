@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"pastebin/internal/models"
+	"pastebin/pkg/utils"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -69,14 +71,81 @@ func (u *UserRepository) CreateUser(ctx context.Context, user *models.User) erro
 	return nil
 }
 
+func (u *UserRepository) UpdateUser(ctx context.Context, user *models.User) error {
+	query := `UPDATE users SET name=$2,email=$3,password_hash=$4 WHERE id=$1`
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to begin transaction :%w", err)
+	}
+	defer tx.Rollback(ctx)
+	_, err = tx.Exec(ctx, query, user.ID, user.Name, user.Email, user.PasswordHash)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction %w", err)
+	}
 
-func(u*UserRepository)UpdateUser(ctx context.Context,user *models.User)error{
-	query:=`UPDATE users SET name=$2,email=$3,password_hash=$4 WHERE id=$1`
-	_,err:=u.db.Exec(ctx,query,user.ID,user.Name,user.Email,user.PasswordHash)
-	if err!=nil{
-		return fmt.Errorf("failed to update user: %w",err)
+	return nil
+}
+
+func (u *UserRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, password string) error {
+	hashedPassword, err := utils.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+	query := `UPDATE users SET password_hash=$1 WHERE id=$2`
+	tx, err := u.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction : %w", err)
+	}
+	defer tx.Rollback(ctx)
+	_, err = tx.Exec(ctx, query, hashedPassword, userID)
+	if err != nil {
+		return fmt.Errorf("unable to update password :%w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction:%w", err)
+	}
+	return nil
+
+}
+
+// SavePasswordResetToken stores a reset token and its expiry for the given user.
+func (u *UserRepository) SavePasswordResetToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
+	query := `UPDATE users SET reset_token=$1, reset_token_expires_at=$2 WHERE id=$3`
+	_, err := u.db.Exec(ctx, query, token, expiresAt, userID)
+	if err != nil {
+		return fmt.Errorf("failed to save password reset token: %w", err)
 	}
 	return nil
 }
 
+// GetUserByResetToken returns the user associated with a valid, non-expired reset token.
+func (u *UserRepository) GetUserByResetToken(ctx context.Context, token string) (*models.User, error) {
+	query := `SELECT id, name, email, password_hash FROM users WHERE reset_token=$1 AND reset_token_expires_at > NOW()`
+	rows, err := u.db.Query(ctx, query, token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user by reset token: %w", err)
+	}
+	defer rows.Close()
 
+	user, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[models.User])
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, pgx.ErrNoRows
+		}
+		return nil, fmt.Errorf("failed to scan user by reset token: %w", err)
+	}
+	return &user, nil
+}
+
+// ClearPasswordResetToken removes the reset token and its expiry for a user after successful reset.
+func (u *UserRepository) ClearPasswordResetToken(ctx context.Context, userID uuid.UUID) error {
+	query := `UPDATE users SET reset_token=NULL, reset_token_expires_at=NULL WHERE id=$1`
+	_, err := u.db.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to clear password reset token: %w", err)
+	}
+	return nil
+}

@@ -5,7 +5,11 @@ CREATE TABLE IF NOT EXISTS users(
 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 name TEXT NOT NULL,
 email TEXT NOT NULL,
-password_hash TEXT NOT NULL
+avatar TEXT,
+is_verified BOOLEAN NOT NULL DEFAULT false,
+password_hash TEXT NOT NULL,
+reset_token TEXT,
+reset_token_expires_at TIMESTAMPTZ
 );
 -- +goose StatementEnd
 

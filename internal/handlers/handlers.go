@@ -26,6 +26,8 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	// Public routes (no authentication required)
 	e.POST("/register", h.authHandler.Register)
 	e.POST("/login", h.authHandler.Login)
+	e.POST("/forgot-password", h.authHandler.ForgotPassword)
+	e.POST("/reset-password", h.authHandler.ResetPassword)
 	e.GET("/paste/:id", h.pasteHandler.GetPasteByID) // Allow public viewing by UUID
 	e.GET("/p/:slug", h.pasteHandler.GetPublicPaste) // Public sharing by slug
 	e.GET("/raw/:slug", h.pasteHandler.GetRawPaste)  // Raw content by slug
