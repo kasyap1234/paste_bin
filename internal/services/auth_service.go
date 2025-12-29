@@ -47,6 +47,11 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 		a.logger.Error().Err(regErr).Msg("error registering user")
 		return regErr
 	}
+	verificationToken := utils.GenerateResetToken()
+	if err := utils.SendVerifyEmail(registerInput.Email, verificationToken); err != nil {
+		a.logger.Error().Err(err).Msg("failed to send verification email")
+
+	}
 	return nil
 }
 
