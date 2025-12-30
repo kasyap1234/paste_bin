@@ -20,10 +20,10 @@ func NewAuthRepository(db *pgxpool.Pool) *AuthRepository {
 	}
 }
 
-func (a *AuthRepository) Register(ctx context.Context, registerInput *models.RegisterInput) error {
+func (a *AuthRepository) Register(ctx context.Context, registerInput *models.RegisterInput) (*models.User, error) {
 	hashedPassword, err := utils.HashPassword(registerInput.Password)
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 	user := &models.User{
 		ID:           uuid.New(),
@@ -33,17 +33,17 @@ func (a *AuthRepository) Register(ctx context.Context, registerInput *models.Reg
 	}
 	tx, err := a.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx)
 	query := `INSERT INTO users(id,name,email,password_hash) VALUES ($1,$2,$3,$4)`
 
 	_, err = tx.Exec(ctx, query, user.ID, user.Name, user.Email, user.PasswordHash)
 	if err != nil {
-		return fmt.Errorf("failed to insert user: %w", err)
+		return nil, fmt.Errorf("failed to insert user: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	return nil
+	return user, nil
 }

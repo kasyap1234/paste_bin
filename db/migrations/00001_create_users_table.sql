@@ -9,6 +9,8 @@ avatar TEXT,
 is_verified BOOLEAN NOT NULL DEFAULT false,
 password_hash TEXT NOT NULL,
 reset_token TEXT,
+verification_token TEXT, 
+verification_token_expires_at TIMESTAMPTZ,
 reset_token_expires_at TIMESTAMPTZ
 );
 -- +goose StatementEnd

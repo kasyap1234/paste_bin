@@ -10,6 +10,7 @@ type User struct {
 	Email        string    `json:"email" db:"email"`
 	Avatar       string    `json:"avatar" db:"avatar"`
 	PasswordHash string    `json:"-" db:"password_hash"`
+	IsVerified   bool      `json:"is_verified" db:"is_verified"`
 }
 
 // PatchProfile represents optional fields for partial profile updates

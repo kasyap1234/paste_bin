@@ -149,3 +149,46 @@ func (u *UserRepository) ClearPasswordResetToken(ctx context.Context, userID uui
 	}
 	return nil
 }
+
+func (u *UserRepository) SendVerificationToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
+	query := `UPDATE users SET verification_token = $1, verification_token_expires_at = $2 WHERE id = $3`
+	_, err := u.db.Exec(ctx, query, token, expiresAt, userID)
+	if err != nil {
+		return fmt.Errorf("failed to save verification token: %w", err)
+	}
+	return nil
+}
+
+func (u *UserRepository) GetVerificationToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	query := `SELECT verification_token FROM users WHERE id = $1`
+	var token *string
+	err := u.db.QueryRow(ctx, query, userID).Scan(&token)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil // Return empty string if user not found, or maybe error? existing logic suggests returning empty string or specific error. Usually if user not found it's an error, but if token is null it's empty string.
+		}
+		return "", fmt.Errorf("failed to scan verification token: %w", err)
+	}
+	if token == nil {
+		return "", nil
+	}
+	return *token, nil
+}
+
+func (u *UserRepository) ClearVerificationToken(ctx context.Context, userID uuid.UUID) error {
+	query := `UPDATE users SET verification_token = NULL, verification_token_expires_at = NULL WHERE id = $1`
+	_, err := u.db.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to clear verification token: %w", err)
+	}
+	return nil
+}
+
+func (u *UserRepository) SaveVerificationToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
+	query := `UPDATE users SET verification_token = $1, verification_token_expires_at = $2 WHERE id = $3`
+	_, err := u.db.Exec(ctx, query, token, expiresAt, userID)
+	if err != nil {
+		return fmt.Errorf("failed to save verification token: %w", err)
+	}
+	return nil
+}

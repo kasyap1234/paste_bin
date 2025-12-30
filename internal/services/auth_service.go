@@ -42,12 +42,16 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 	if ok {
 		return fmt.Errorf("user already exists with email: %s", registerInput.Email)
 	}
-	regErr := a.authRepo.Register(ctx, registerInput)
+	user, regErr := a.authRepo.Register(ctx, registerInput)
 	if regErr != nil {
 		a.logger.Error().Err(regErr).Msg("error registering user")
 		return regErr
 	}
 	verificationToken := utils.GenerateResetToken()
+	if err := a.userRepo.SaveVerificationToken(ctx, user.ID, verificationToken, time.Now().Add(24*time.Hour)); err != nil {
+		a.logger.Error().Err(err).Msg("error updating verification token")
+		return err
+	}
 	if err := utils.SendVerifyEmail(registerInput.Email, verificationToken); err != nil {
 		a.logger.Error().Err(err).Msg("failed to send verification email")
 

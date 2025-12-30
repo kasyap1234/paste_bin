@@ -33,5 +33,14 @@ func SendVerifyEmail(email string, token string) error {
 
 	// send the verify url via email to the email id
 	fmt.Print(verifyURL)
+	if err := SendEmail(email, "Verify Email ", verifyURL); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func SendEmail(email string, subject, body string) error {
+	// use resend
+	
 }
