@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"os"
+
+	"github.com/resend/resend-go/v3"
 )
 
 // SendPasswordResetEmail builds a reset URL with the given token and sends it
@@ -15,10 +17,9 @@ func SendPasswordResetEmail(email, token string) error {
 	}
 
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", baseURL, token)
-
-	// TODO: integrate with real email provider.
-	// For now we just print the URL so it is visible in logs.
-	fmt.Printf("Password reset link for %s: %s\n", email, resetURL)
+	if err := SendEmail(email, "Password Reset", resetURL); err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
 
 	return nil
 }
@@ -32,15 +33,33 @@ func SendVerifyEmail(email string, token string) error {
 	verifyURL := fmt.Sprintf("%s/verify-email/%s", baseURL, token)
 
 	// send the verify url via email to the email id
-	fmt.Print(verifyURL)
 	if err := SendEmail(email, "Verify Email ", verifyURL); err != nil {
-		return err
+		return fmt.Errorf("failed to send email: %w", err)
 	}
 
 	return nil
 }
 
-func SendEmail(email string, subject, body string) error {
-	// use resend
-	
+func SendEmail(to string, subject, body string) error {
+	apiKey := os.Getenv("RESEND_API_KEY")
+	if apiKey == "" {
+		return fmt.Errorf("RESEND_API_KEY not set")
+	}
+
+	client := resend.NewClient(apiKey)
+
+	params := &resend.SendEmailRequest{
+		From:    "pastebin@gmail.com", // Default sender for testing
+		To:      []string{to},
+		Subject: subject,
+		Html:    body,
+	}
+
+	sent, err := client.Emails.Send(params)
+	if err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	fmt.Printf("Email sent successfully! ID: %s\n", sent.Id)
+	return nil
 }
+
