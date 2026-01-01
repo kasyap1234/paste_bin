@@ -148,17 +148,11 @@ func (p *PasteService) FilterPastes(ctx context.Context, filter *models.PasteFil
 }
 
 func (p *PasteService) GetPasteBySlug(ctx context.Context, slug, password string) (*models.PasteOutput, error) {
-	userID, _ := auth.GetUserIDFromContext(ctx) // Optional auth for public routes
-
 	paste, err := p.pasteRepo.GetPasteBySlug(ctx, slug, password)
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to get paste by slug")
 		return nil, fmt.Errorf("unable to get paste by slug: %w", err)
 	}
 
-	if paste.IsPrivate && paste.UserID != userID {
-		p.logger.Error().Msg("user does not have permission to view this paste")
-		return nil, fmt.Errorf("user does not have permission to view this paste")
-	}
 	return paste, nil
 }

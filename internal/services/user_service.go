@@ -39,7 +39,6 @@ func (u *UserService) GetUserByEmail(ctx context.Context, email string) (*models
 }
 func (u *UserService) CheckUserExists(ctx context.Context, userID uuid.UUID) (bool, error) {
 	if u == nil || u.userRepo == nil {
-		u.logger.Error().Msg("user service or repository is not initialized")
 		return false, fmt.Errorf("user service or repository is not initialized")
 	}
 

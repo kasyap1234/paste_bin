@@ -54,7 +54,7 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 	}
 	if err := utils.SendVerifyEmail(registerInput.Email, verificationToken); err != nil {
 		a.logger.Error().Err(err).Msg("failed to send verification email")
-
+		return err
 	}
 	return nil
 }
@@ -73,7 +73,7 @@ func (a *AuthService) Login(ctx context.Context, loginInput *models.LoginInput) 
 
 	if !utils.VerifyPassword(user.PasswordHash, loginInput.Password) {
 		a.logger.Error().Msg("invalid email or password")
-		return nil, fmt.Errorf("invalid email or password: %w", err)
+		return nil, fmt.Errorf("invalid email or password")
 	}
 	token, err := a.jwtManager.GenerateToken(user.ID, user.Email, 24*time.Hour)
 	if err != nil {

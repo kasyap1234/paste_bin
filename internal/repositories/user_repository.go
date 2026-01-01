@@ -150,15 +150,6 @@ func (u *UserRepository) ClearPasswordResetToken(ctx context.Context, userID uui
 	return nil
 }
 
-func (u *UserRepository) SendVerificationToken(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
-	query := `UPDATE users SET verification_token = $1, verification_token_expires_at = $2 WHERE id = $3`
-	_, err := u.db.Exec(ctx, query, token, expiresAt, userID)
-	if err != nil {
-		return fmt.Errorf("failed to save verification token: %w", err)
-	}
-	return nil
-}
-
 func (u *UserRepository) GetVerificationToken(ctx context.Context, userID uuid.UUID) (string, error) {
 	query := `SELECT verification_token FROM users WHERE id = $1`
 	var token *string

@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
+	pasteerrors "pastebin/pkg/errors"
 	"pastebin/pkg/utils"
 	"strconv"
 	"time"
@@ -191,18 +193,18 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 	}
 	paste, err := p.pasteSvc.GetPasteByID(ctx, pasteID, isAuthenticated, requestUserID, password)
 	if err != nil {
-		// Handle specific error messages
-		if err.Error() == "password required" {
-			return utils.SendError(c, http.StatusBadRequest, err.Error())
+		// Handle specific error types using sentinel errors
+		if errors.Is(err, pasteerrors.ErrPasswordRequired) {
+			return utils.SendError(c, http.StatusBadRequest, "password required")
 		}
-		if err.Error() == "invalid password" {
-			return utils.SendError(c, http.StatusUnauthorized, err.Error())
+		if errors.Is(err, pasteerrors.ErrInvalidPassword) {
+			return utils.SendError(c, http.StatusUnauthorized, "invalid password")
 		}
-		if err.Error() == "paste not found" {
-			return utils.SendError(c, http.StatusNotFound, err.Error())
+		if errors.Is(err, pasteerrors.ErrPasteNotFound) {
+			return utils.SendError(c, http.StatusNotFound, "paste not found")
 		}
-		if err.Error() == "paste has expired" {
-			return utils.SendError(c, http.StatusNotFound, err.Error())
+		if errors.Is(err, pasteerrors.ErrPasteExpired) {
+			return utils.SendError(c, http.StatusNotFound, "paste has expired")
 		}
 		return utils.SendError(c, http.StatusInternalServerError, "failed to retrieve paste")
 	}

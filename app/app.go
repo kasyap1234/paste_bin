@@ -45,7 +45,7 @@ func New() (*App, error) {
 
 	authRepo := repositories.NewAuthRepository(db)
 	userRepo := repositories.NewUserRepository(db)
-	pasteRepo := repositories.NewPasteRepository(db)
+	pasteRepo := repositories.NewPasteRepository(db, logger)
 	analyticsRepo := repositories.NewAnalyticsRepository(db)
 	profileRepo := repositories.NewProfileRepository(db)
 

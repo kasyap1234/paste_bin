@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/resend/resend-go/v3"
@@ -46,10 +47,15 @@ func SendEmail(to string, subject, body string) error {
 		return fmt.Errorf("RESEND_API_KEY not set")
 	}
 
+	fromEmail := os.Getenv("RESEND_FROM_EMAIL")
+	if fromEmail == "" {
+		fromEmail = "noreply@example.com"
+	}
+
 	client := resend.NewClient(apiKey)
 
 	params := &resend.SendEmailRequest{
-		From:    "pastebin@gmail.com", // Default sender for testing
+		From:    fromEmail,
 		To:      []string{to},
 		Subject: subject,
 		Html:    body,
@@ -59,7 +65,6 @@ func SendEmail(to string, subject, body string) error {
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
-	fmt.Printf("Email sent successfully! ID: %s\n", sent.Id)
+	log.Printf("Email sent successfully! ID: %s", sent.Id)
 	return nil
 }
-

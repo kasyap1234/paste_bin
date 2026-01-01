@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"pastebin/internal/models"
+	pasteerrors "pastebin/pkg/errors"
 	"pastebin/pkg/utils"
 	"time"
 
@@ -12,15 +13,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 )
 
 type PasteRepository struct {
-	db *pgxpool.Pool
+	db     *pgxpool.Pool
+	logger zerolog.Logger
 }
 
-func NewPasteRepository(db *pgxpool.Pool) *PasteRepository {
+func NewPasteRepository(db *pgxpool.Pool, logger zerolog.Logger) *PasteRepository {
 	return &PasteRepository{
-		db: db,
+		db:     db,
+		logger: logger,
 	}
 }
 
@@ -162,23 +166,24 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 
 	// Check if paste has expired
 	if paste.ExpiresAt != nil && paste.ExpiresAt.Before(time.Now()) {
-		return nil, fmt.Errorf("paste has expired")
+		return nil, pasteerrors.ErrPasteExpired
 	}
 	// Check if user is the owner
 	isOwner := isAuthenticated && paste.UserID == userID
 	// if the paste is private and the user is not the owner then check if the password is correct
 	if paste.IsPrivate && !isOwner {
 		if password == "" {
-			return nil, fmt.Errorf("password required")
+			return nil, pasteerrors.ErrPasswordRequired
 		}
 		if !utils.VerifyPassword(paste.PasswordHash, password) {
-			return nil, fmt.Errorf("invalid password")
-
+			return nil, pasteerrors.ErrInvalidPassword
 		}
 	}
 	if !isOwner {
 		// Increment view count for non-owner views
-		_ = p.incrementViewCount(ctx, pasteID)
+		if err := p.incrementViewCount(ctx, pasteID); err != nil {
+			p.logger.Warn().Err(err).Str("paste_id", pasteID.String()).Msg("failed to increment view count")
+		}
 	}
 	return &paste, nil
 }
@@ -271,26 +276,27 @@ func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string, passw
 
 	// Check if paste has expired
 	if paste.ExpiresAt != nil && paste.ExpiresAt.Before(time.Now()) {
-		return nil, fmt.Errorf("paste has expired")
+		return nil, pasteerrors.ErrPasteExpired
 	}
 
-	// Check if paste is private (should not be accessible publicly)
+	// Check if paste is private (requires password)
 	if paste.IsPrivate {
-
 		if password == "" {
-			return nil, fmt.Errorf("password required")
+			return nil, pasteerrors.ErrPasswordRequired
 		}
 		if !utils.VerifyPassword(paste.PasswordHash, password) {
-			return nil, fmt.Errorf("invalid password")
-
+			return nil, pasteerrors.ErrInvalidPassword
 		}
-
+		// Increment view count for private pastes accessed with correct password
+		if err := p.incrementViewCount(ctx, paste.ID); err != nil {
+			p.logger.Warn().Err(err).Str("paste_id", paste.ID.String()).Msg("failed to increment view count")
+		}
 		return &paste, nil
 	}
 
-	// Increment view count
+	// Increment view count for public pastes
 	if err := p.incrementViewCount(ctx, paste.ID); err != nil {
-		// Log the error but don't fail the paste retrieval
+		p.logger.Warn().Err(err).Str("paste_id", paste.ID.String()).Msg("failed to increment view count")
 	}
 
 	return &paste, nil
