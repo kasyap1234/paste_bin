@@ -56,6 +56,13 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 		a.logger.Error().Err(err).Msg("failed to send verification email")
 		return err
 	}
+	user, err := a.userRepo.GetUserByEmail(ctx, registerInput.Email)
+	if err != nil {
+		a.logger.Error().Err(err).Msg("failed to get user by email")
+		return fmt.Errorf("failed to get user by email: %w", err)
+	}
+	a.userRepo.SaveVerifyToken(ctx, user.ID, verificationToken, time.Now().Add(24*time.Hour))
+
 	return nil
 }
 
@@ -84,4 +91,29 @@ func (a *AuthService) Login(ctx context.Context, loginInput *models.LoginInput) 
 		Token: token,
 		User:  *user,
 	}, nil
+}
+
+func (a *AuthService) VerifyEmail(ctx context.Context, token string) error {
+	user, err := a.userRepo.GetUserByVerifyToken(ctx, token)
+	if err != nil {
+		a.logger.Error().Err(err).Msg("failed to get user by token")
+		return fmt.Errorf("failed to get user by token: %w", err)
+	}
+	if user.VerifyToken == nil || user.VerifyTokenExpiresAt == nil || time.Now().After(*user.VerifyTokenExpiresAt) {
+		return fmt.Errorf("invalid or expired verify token")
+	}
+
+	user.IsVerified = true
+	err = a.userRepo.UpdateUserIsVerified(ctx, user.ID, user.IsVerified)
+	if err != nil {
+		a.logger.Error().Err(err).Msg("failed to update user")
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	err = a.userRepo.ClearVerifyToken(ctx, user.ID)
+	if err != nil {
+		a.logger.Error().Err(err).Msg("failed to clear verify token")
+		return fmt.Errorf("failed to clear verify token: %w", err)
+	}
+	a.logger.Info().Msg("email verified successfully")
+	return nil
 }

@@ -28,9 +28,10 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	e.POST("/login", h.authHandler.Login)
 	e.POST("/forgot-password", h.authHandler.ForgotPassword)
 	e.POST("/reset-password", h.authHandler.ResetPassword)
-	e.GET("/paste/:id", h.pasteHandler.GetPasteByID) // Allow public viewing by UUID
-	e.GET("/p/:slug", h.pasteHandler.GetPublicPaste) // Public sharing by slug
-	e.GET("/raw/:slug", h.pasteHandler.GetRawPaste)  // Raw content by slug
+	e.GET("/verify-email/:token", h.authHandler.VerifyEmail) // Email verification endpoint
+	e.GET("/paste/:id", h.pasteHandler.GetPasteByID)         // Allow public viewing by UUID
+	e.GET("/p/:slug", h.pasteHandler.GetPublicPaste)         // Public sharing by slug
+	e.GET("/raw/:slug", h.pasteHandler.GetRawPaste)          // Raw content by slug
 
 	// Swagger documentation
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
@@ -54,4 +55,5 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	protected.GET("/analytics/:id", h.analyticsHandler.GetAnalyticsByID)
 	protected.GET("/profile", h.profileHandler.GetProfileHandler)
 	protected.PUT("/profile", h.profileHandler.UpdateProfileHandler)
+
 }

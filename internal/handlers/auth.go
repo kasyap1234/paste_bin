@@ -179,3 +179,30 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 
 	return utils.SendSuccess(c, http.StatusOK, nil, "password reset successfully")
 }
+
+// VerifyEmail godoc
+//
+//	@Summary		Verify user email
+//	@Description	Verify user email using verification token
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			token	path		string				true	"Verification token"
+//	@Success		200		{object}	map[string]string	"Email verified successfully"
+//	@Failure		400		{object}	map[string]string	"Invalid or expired token"
+//	@Failure		500		{object}	map[string]string	"Failed to verify email"
+//	@Router			/verify-email/{token} [get]
+func (h *AuthHandler) VerifyEmail(c echo.Context) error {
+	token := c.Param("token")
+	if token == "" {
+		return utils.SendError(c, http.StatusBadRequest, "verification token is required")
+	}
+
+	ctx := c.Request().Context()
+	if err := h.authSvc.VerifyEmail(ctx, token); err != nil {
+		h.logger.Error().Err(err).Msg("failed to verify email")
+		return utils.SendError(c, http.StatusBadRequest, "invalid or expired verification token")
+	}
+
+	return utils.SendSuccess(c, http.StatusOK, nil, "email verified successfully")
+}
