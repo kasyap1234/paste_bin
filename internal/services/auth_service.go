@@ -48,7 +48,7 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 		return regErr
 	}
 	verificationToken := utils.GenerateResetToken()
-	if err := a.userRepo.SaveVerificationToken(ctx, user.ID, verificationToken, time.Now().Add(24*time.Hour)); err != nil {
+	if err := a.userRepo.SaveVerifyToken(ctx, user.ID, verificationToken, time.Now().Add(24*time.Hour)); err != nil {
 		a.logger.Error().Err(err).Msg("error updating verification token")
 		return err
 	}
@@ -56,12 +56,6 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 		a.logger.Error().Err(err).Msg("failed to send verification email")
 		return err
 	}
-	user, err := a.userRepo.GetUserByEmail(ctx, registerInput.Email)
-	if err != nil {
-		a.logger.Error().Err(err).Msg("failed to get user by email")
-		return fmt.Errorf("failed to get user by email: %w", err)
-	}
-	a.userRepo.SaveVerifyToken(ctx, user.ID, verificationToken, time.Now().Add(24*time.Hour))
 
 	return nil
 }
