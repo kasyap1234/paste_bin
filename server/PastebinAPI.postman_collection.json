@@ -1,0 +1,357 @@
+{
+  "info": {
+    "_postman_id": "{{$guid}}",
+    "name": "Pastebin API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "A simple pastebin service with analytics"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"string\",\n  \"email\": \"string\",\n  \"password\": \"string\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"string\",\n  \"password\": \"string\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "login"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pastes",
+      "item": [
+        {
+          "name": "Create Paste",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"content\": \"string\",\n  \"is_public\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/paste",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "paste"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Paste by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/paste/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "paste",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Paste",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"content\": \"string\",\n  \"is_public\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/paste/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "paste",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Paste",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/paste/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "paste",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Pastes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/pastes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pastes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Public Paste",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/p/:slug",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "p",
+                ":slug"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Raw Paste",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/raw/:slug",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "raw",
+                ":slug"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Get All Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Analytics by User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "user"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Analytics by Paste ID",
+          "request": {
+            "method": \"GET\",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/paste",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "paste"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Analytics",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paste_id\": \"string\",\n  \"user_id\": \"string\",\n  \"view_count\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/create-analytics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "create-analytics"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Analytics by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
