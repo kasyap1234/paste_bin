@@ -1,0 +1,3 @@
+2026/01/16 11:39:35 Loaded .env file from: .env
+[90m11:39AM[0m [32mINF[0m [1mstarting pastebin api[0m [36maddr=[0m:8080 [36menv=[0mdevelopment
+{"time":"2026-01-16T11:39:38.304516199+05:30","id":"","remote_ip":"::1","host":"localhost:8080","method":"GET","uri":"/openapi.yaml","user_agent":"curl/8.18.0","status":404,"error":"code=404, message=Not Found","latency":38259,"latency_human":"38.259µs","bytes_in":0,"bytes_out":24}

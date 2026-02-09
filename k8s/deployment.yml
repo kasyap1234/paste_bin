@@ -1,0 +1,10 @@
+apiVersion: apps/v1 
+kind: Deployment 
+metadata: 
+   name: paste_bin_backend 
+spec: 
+   replicas: 3 
+   selector: 
+        matchLabels:
+            app: paste_bin_backend
+   template
