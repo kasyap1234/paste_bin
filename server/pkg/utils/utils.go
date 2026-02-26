@@ -55,10 +55,10 @@ func BuildSets(patch any) ([]string, []any, int) {
 
 // StructToMap converts a struct to a map[string]interface{} based on a tag name.
 // It skips fields that are nil pointers.
-func StructToMap(data interface{}, tagName string) map[string]interface{} {
-	result := make(map[string]interface{})
+func StructToMap(data any, tagName string) map[string]any {
+	result := make(map[string]any)
 	v := reflect.ValueOf(data)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	if v.Kind() != reflect.Struct {
@@ -75,7 +75,7 @@ func StructToMap(data interface{}, tagName string) map[string]interface{} {
 
 		val := v.Field(i)
 		// Handle pointers: if nil, skip. If not nil, dereference.
-		if val.Kind() == reflect.Ptr {
+		if val.Kind() == reflect.Pointer {
 			if val.IsNil() {
 				continue
 			}

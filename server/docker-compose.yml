@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: paste_bin_postgres
     environment:
       POSTGRES_USER: postgres
@@ -15,6 +15,75 @@ services:
       retries: 10
     volumes:
       - db-data:/var/lib/postgresql/data
+    networks:
+      - paste_bin_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paste_bin_backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    volumes:
+      - ./server:/app
+    command: ["go", "run", "cmd/pastebin-api/main.go"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    environment:
+      - APP_ENV=development
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=sample_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - JWT_SECRET=your_secret_key
+      - EMAIL_VERIFICATION_URL=http://localhost:8001
+      - EMAIL_FROM=your@email.com
+      - EMAIL_PASSWORD=your_password
+    restart: unless-stopped
+    networks:
+      - paste_bin_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: paste_bin_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    depends_on:
+      - backend
+    networks:
+      - paste_bin_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: paste_bin_grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - paste_bin_network
+    restart: unless-stopped
+
+networks:
+  paste_bin_network:
 
 volumes:
   db-data:
+  prometheus-data:
+  grafana-data:

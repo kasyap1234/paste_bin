@@ -6,14 +6,14 @@ import (
 
 // APIResponse represents a standardized API response structure
 type APIResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Data    any    `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 // SendSuccess sends a success response with optional data and message
-func SendSuccess(c echo.Context, code int, data interface{}, message string) error {
+func SendSuccess(c echo.Context, code int, data any, message string) error {
 	return c.JSON(code, APIResponse{
 		Success: true,
 		Message: message,

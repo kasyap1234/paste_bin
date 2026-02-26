@@ -7,4 +7,40 @@ spec:
    selector: 
         matchLabels:
             app: paste_bin_backend
-   template
+   template: 
+        metadata:
+            labels: 
+                app: paste_bin_backend
+   template:
+      spec: 
+         containers: 
+         - name: paste_bin_backend
+          image: paste_bin_backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: paste_bin_postgres
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: sample_db
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              value: postgres
+            - name: JWT_SECRET
+              value: your_secret_key
+            - name: EMAIL_VERIFICATION_URL
+              value: http://localhost:8001
+            - name: EMAIL_FROM
+              value: your@email.com
+            - name: EMAIL_PASSWORD
+              value: your_password
+          resources:
+            limits:
+              cpu: "1"
+              memory: 256Mi
+            requests:
+              cpu: "1"
+              memory: 256Mi

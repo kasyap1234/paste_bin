@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	echoPrometheus "github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	echoSwagger "github.com/swaggo/echo-swagger"
 )
@@ -33,6 +34,12 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	e.GET("/p/:slug", h.pasteHandler.GetPublicPaste)         // Public sharing by slug
 	e.GET("/raw/:slug", h.pasteHandler.GetRawPaste)          // Raw content by slug
 
+	e.Use(echoPrometheus.NewMiddleware("pastebin"))
+	e.GET("/metrics", echoPrometheus.NewHandler())
+	e.GET("/health", func(c echo.Context) error {
+		return c.NoContent(200)
+	})
+	
 	// Swagger documentation
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"pastebin/internal/models"
 	"pastebin/pkg/utils"
@@ -35,15 +36,22 @@ func (u *UserRepository) GetUserByID(ctx context.Context, userID uuid.UUID) (*mo
 	return &user, nil
 }
 func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	query := `SELECT id, name, email, password_hash FROM users WHERE email=$1`
-	rows, err := u.db.Query(ctx, query, email)
+	query := `SELECT id, name, email, avatar, password_hash, verify_token, verify_token_expires_at, is_verified, reset_token, reset_token_expires_at FROM users WHERE email=$1`
+	var user models.User
+	err := u.db.QueryRow(ctx, query, email).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Email,
+		&user.Avatar,
+		&user.PasswordHash,
+		&user.VerifyToken,
+		&user.VerifyTokenExpiresAt,
+		&user.IsVerified,
+		&user.ResetToken,
+		&user.ResetTokenExpiresAt,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query user by email: %w", err)
-	}
-	defer rows.Close()
-	user, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[models.User])
-	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, pgx.ErrNoRows
 		}
 		return nil, fmt.Errorf("failed to scan user: %w", err)

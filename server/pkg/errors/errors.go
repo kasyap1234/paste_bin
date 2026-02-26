@@ -10,3 +10,5 @@ var (
 	ErrPasteExpired     = errors.New("paste has expired")
 	ErrPermissionDenied = errors.New("permission denied")
 )
+
+

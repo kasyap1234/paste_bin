@@ -52,9 +52,9 @@ func (a *AuthService) Register(ctx context.Context, registerInput *models.Regist
 		a.logger.Error().Err(err).Msg("error updating verification token")
 		return err
 	}
+	// Don't fail registration if email fails - just log the error
 	if err := utils.SendVerifyEmail(registerInput.Email, verificationToken); err != nil {
-		a.logger.Error().Err(err).Msg("failed to send verification email")
-		return err
+		a.logger.Error().Err(err).Msg("failed to send verification email - registration still successful")
 	}
 
 	return nil

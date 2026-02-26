@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"pastebin/internal/models"
@@ -161,6 +162,9 @@ func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, i
 	defer row.Close()
 	paste, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[models.PasteOutput])
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, pasteerrors.ErrPasteNotFound
+		}
 		return nil, fmt.Errorf("failed to collect paste: %w", err)
 	}
 
@@ -206,7 +210,7 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID, li
 	}
 
 	// Then get the paginated results
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.language, p.url, p.expires_at, p.created_at, COALESCE(a.views, 0) as views
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.language, p.url, p.password, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views
 		FROM pastes p
 		LEFT JOIN pastes_analytics a ON p.id = a.paste_id
 		WHERE p.user_id = $1 AND (p.expires_at IS NULL OR p.expires_at > NOW())
@@ -312,7 +316,10 @@ func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pa
 		"p.content",
 		"p.language",
 		"p.url",
+		"p.password",
 		"p.expires_at",
+		"p.created_at",
+		"p.updated_at",
 		"COALESCE(a.views, 0) as views",
 	).From("pastes p").
 		LeftJoin("pastes_analytics a ON p.id = a.paste_id").

@@ -23,18 +23,25 @@ func NewProfileRepository(db *pgxpool.Pool) *ProfileRepository {
 }
 
 func (p *ProfileRepository) GetProfile(ctx context.Context, userID uuid.UUID) (*models.User, error) {
-	query := `SELECT * FROM users WHERE id = $1`
-	row, err := p.db.Query(ctx, query, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get profile: %w", err)
-	}
-	defer row.Close()
-	user, err := pgx.CollectOneRow(row, pgx.RowToStructByName[models.User])
+	query := `SELECT id, name, email, avatar, password_hash, verify_token, verify_token_expires_at, is_verified, reset_token, reset_token_expires_at FROM users WHERE id = $1`
+	var user models.User
+	err := p.db.QueryRow(ctx, query, userID).Scan(
+		&user.ID,
+		&user.Name,
+		&user.Email,
+		&user.Avatar,
+		&user.PasswordHash,
+		&user.VerifyToken,
+		&user.VerifyTokenExpiresAt,
+		&user.IsVerified,
+		&user.ResetToken,
+		&user.ResetTokenExpiresAt,
+	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to collect user: %w", err)
+		return nil, fmt.Errorf("failed to scan user: %w", err)
 	}
 	return &user, nil
 }
