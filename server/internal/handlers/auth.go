@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"pastebin/internal/metrics"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
 	"pastebin/pkg/utils"
@@ -65,6 +66,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		h.logger.Error().Err(err).Msg("failed to register user")
 		return utils.SendError(c, http.StatusInternalServerError, "failed to register user")
 	}
+	metrics.RecordUserRegistration()
 	return utils.SendSuccess(c, http.StatusCreated, nil, "user registered successfully")
 }
 
@@ -101,8 +103,10 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	resp, err := h.authSvc.Login(ctx, &loginInput)
 	if err != nil {
 		h.logger.Error().Err(err).Msg("failed to login")
+		metrics.RecordUserLogin("failure")
 		return utils.SendError(c, http.StatusUnauthorized, "invalid email or password")
 	}
+	metrics.RecordUserLogin("success")
 	return utils.SendSuccess(c, http.StatusOK, resp, "login successful")
 }
 

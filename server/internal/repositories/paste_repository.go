@@ -30,13 +30,14 @@ func NewPasteRepository(db *pgxpool.Pool, logger zerolog.Logger) *PasteRepositor
 }
 
 func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pasteInput *models.PasteInput) (*models.PasteOutput, error) {
-	query := `INSERT INTO pastes (user_id, title, is_private, content, language, url, password, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	query := `INSERT INTO pastes (user_id, title, is_private, content, language, url, password, expires_at, burn_after_read) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	title := pasteInput.Title
 	if title == "" {
 		title = "Untitled"
 	}
 	urlSlug := uuid.New().String()[:8]
 	var isPrivate bool
+	var burnAfterRead bool
 	var passwordHash string
 	baseURL := os.Getenv("BASE_URL")
 	if baseURL == "" {
@@ -46,6 +47,7 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	if pasteInput.Password == "" {
 		isPrivate = false
 		passwordHash = ""
+		burnAfterRead = pasteInput.BurnAfterRead
 	} else {
 		isPrivate = true
 		hashedPassword, err := utils.HashPassword(pasteInput.Password)
@@ -53,6 +55,7 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 			return nil, fmt.Errorf("failed to hash password: %w", err)
 		}
 		passwordHash = hashedPassword
+		burnAfterRead = pasteInput.BurnAfterRead
 	}
 	language := pasteInput.Language
 	content := pasteInput.Content
@@ -63,7 +66,7 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url, passwordHash, expiresAt)
+	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url, passwordHash, expiresAt, burnAfterRead)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert paste: %w", err)
 	}
@@ -113,7 +116,9 @@ func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, pa
 			}
 		}
 	}
-
+	if patchInput.BurnAfterRead != nil {
+		updates["burn_after_read"] = *patchInput.BurnAfterRead
+	}
 	// Always update the updated_at timestamp
 	updates["updated_at"] = time.Now()
 

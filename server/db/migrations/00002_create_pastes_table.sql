@@ -9,14 +9,9 @@ is_private BOOLEAN NOT NULL DEFAULT false,
 content TEXT NOT NULL,
 password TEXT NOT NULL,
 language TEXT NOT NULL,
-url TEXT NOT NULL,
-expires_at TIMESTAMPTZ,
-created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+url TEXT NOT NULL,  
+burn_after_read BOOLEAN NOT NULL DEFAULT false,     
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- +goose StatementEnd
-
--- +goose Down
--- +goose StatementBegin
-DROP TABLE IF EXISTS pastes;
--- +goose StatementEnd

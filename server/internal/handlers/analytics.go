@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"pastebin/internal/metrics"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
 	"pastebin/pkg/utils"
@@ -48,6 +49,7 @@ func (h *AnalyticsHandler) CreateAnalytics(c echo.Context) error {
 	if err := h.analyticsSvc.CreateAnalytics(ctx, createAnalytics.PasteID, createAnalytics.URL); err != nil {
 		return utils.SendError(c, http.StatusInternalServerError, "failed to create analytics")
 	}
+	metrics.RecordAnalyticsEvent("create")
 	return utils.SendSuccess(c, http.StatusCreated, nil, "analytics created successfully")
 }
 
@@ -233,6 +235,7 @@ func (h *AnalyticsHandler) IncrementViewCount(c echo.Context) error {
 	if err != nil {
 		return utils.SendError(c, http.StatusInternalServerError, "failed to increment view count")
 	}
+	metrics.RecordAnalyticsEvent("increment_view")
 	return utils.SendSuccess(c, http.StatusOK, nil, "view count incremented successfully")
 }
 

@@ -11,14 +11,16 @@ type Handlers struct {
 	pasteHandler     *PasteHandler
 	analyticsHandler *AnalyticsHandler
 	profileHandler   *ProfileHandler
+	healthHandler    *HealthHandler
 }
 
-func NewHandlers(authHandler *AuthHandler, pasteHandler *PasteHandler, analyticsHandler *AnalyticsHandler, profileHandler *ProfileHandler) *Handlers {
+func NewHandlers(authHandler *AuthHandler, pasteHandler *PasteHandler, analyticsHandler *AnalyticsHandler, profileHandler *ProfileHandler, healthHandler *HealthHandler) *Handlers {
 	return &Handlers{
 		authHandler:      authHandler,
 		pasteHandler:     pasteHandler,
 		analyticsHandler: analyticsHandler,
 		profileHandler:   profileHandler,
+		healthHandler:    healthHandler,
 	}
 
 }
@@ -36,10 +38,8 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 
 	e.Use(echoPrometheus.NewMiddleware("pastebin"))
 	e.GET("/metrics", echoPrometheus.NewHandler())
-	e.GET("/health", func(c echo.Context) error {
-		return c.NoContent(200)
-	})
-	
+	e.GET("/health", h.healthHandler.Health)
+
 	// Swagger documentation
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
@@ -55,6 +55,7 @@ func (h *Handlers) RegisterRoutes(e *echo.Echo, authMiddleware echo.MiddlewareFu
 	protected.DELETE("/paste/:id", h.pasteHandler.DeletePasteByID)
 	protected.GET("/pastes", h.pasteHandler.GetAllPastes)
 	protected.GET("/paste/filter", h.pasteHandler.FilterPastes)
+	protected.POST("/paste/:id/fork", h.pasteHandler.ForkPaste)
 	protected.GET("/analytics", h.analyticsHandler.GetAllAnalytics)
 	protected.GET("/analytics/user", h.analyticsHandler.GetAllAnalyticsByUser)
 	protected.GET("/analytics/paste", h.analyticsHandler.GetAnalyticsByPasteID)

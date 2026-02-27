@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"pastebin/internal/auth"
+	"pastebin/internal/metrics"
 	"pastebin/internal/models"
 	"pastebin/internal/services"
 	pasteerrors "pastebin/pkg/errors"
@@ -70,6 +71,17 @@ func (p *PasteHandler) CreatePaste(c echo.Context) error {
 		return utils.SendError(c, http.StatusInternalServerError, "failed to create paste")
 	}
 
+	var visibility string
+	if paste.IsPrivate {
+		visibility = "private"
+	} else if createPaste.BurnAfterRead {
+		visibility = "burn_after_read"
+	} else {
+		visibility = "public"
+	}
+	metrics.RecordPasteCreation(visibility)
+	metrics.RecordPasteSize(float64(len(paste.Content)), visibility)
+
 	return utils.SendSuccess(c, http.StatusCreated, paste, "paste created successfully")
 }
 
@@ -107,6 +119,7 @@ func (p *PasteHandler) UpdatePaste(c echo.Context) error {
 	if err := p.pasteSvc.UpdatePaste(ctx, pasteID, &patchPaste); err != nil {
 		return utils.SendError(c, http.StatusInternalServerError, "failed to update paste")
 	}
+	metrics.RecordPasteUpdate()
 	return utils.SendSuccess(c, http.StatusOK, nil, "paste updated successfully")
 }
 
@@ -208,6 +221,7 @@ func (p *PasteHandler) GetPasteByID(c echo.Context) error {
 		}
 		return utils.SendError(c, http.StatusInternalServerError, "failed to retrieve paste")
 	}
+	metrics.RecordPasteView("by_id")
 	return utils.SendSuccess(c, http.StatusOK, paste, "paste retrieved successfully")
 }
 
@@ -239,6 +253,7 @@ func (p *PasteHandler) DeletePasteByID(c echo.Context) error {
 	if err != nil {
 		return utils.SendError(c, http.StatusInternalServerError, "failed to delete paste")
 	}
+	metrics.RecordPasteDeletion()
 	return utils.SendSuccess(c, http.StatusOK, nil, "paste deleted successfully")
 }
 
@@ -268,7 +283,7 @@ func (p *PasteHandler) GetPublicPaste(c echo.Context) error {
 	if err != nil {
 		return utils.SendError(c, http.StatusNotFound, "paste not found")
 	}
-
+	metrics.RecordPasteView("by_slug")
 	return utils.SendSuccess(c, http.StatusOK, paste, "paste retrieved successfully")
 }
 
@@ -298,7 +313,7 @@ func (p *PasteHandler) GetRawPaste(c echo.Context) error {
 	if err != nil {
 		return utils.SendError(c, http.StatusNotFound, "paste not found")
 	}
-
+	metrics.RecordPasteView("raw")
 	c.Response().Header().Set("Content-Type", "text/plain")
 	return c.String(http.StatusOK, paste.Content)
 }
@@ -331,4 +346,21 @@ func (p *PasteHandler) FilterPastes(c echo.Context) error {
 		return utils.SendError(c, http.StatusInternalServerError, "failed to filter pastes")
 	}
 	return utils.SendSuccess(c, http.StatusOK, pastes, "filtered pastes retrieved successfully")
+}
+
+func (p *PasteHandler) ForkPaste(c echo.Context) error {
+	pasteIDParam := c.Param("id")
+	if pasteIDParam == "" {
+		return utils.SendError(c, http.StatusBadRequest, "paste id is required")
+	}
+	pasteID, err := uuid.Parse(pasteIDParam)
+	if err != nil {
+		return utils.SendError(c, http.StatusBadRequest, "invalid paste id")
+	}
+	ctx := c.Request().Context()
+	paste, err := p.pasteSvc.ForkPaste(ctx, pasteID)
+	if err != nil {
+		return utils.SendError(c, http.StatusInternalServerError, "failed to fork paste")
+	}
+	return utils.SendSuccess(c, http.StatusCreated, paste, "paste forked successfully")
 }

@@ -30,7 +30,8 @@ services:
     depends_on:
       - postgres
     volumes:
-      - ./server:/app
+      - .:/app
+    working_dir: /app
     command: ["go", "run", "cmd/pastebin-api/main.go"]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
@@ -71,9 +72,10 @@ services:
     image: grafana/grafana:latest
     container_name: paste_bin_grafana
     ports:
-      - "3000:3000"
+      - "3005:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - prometheus
     networks:

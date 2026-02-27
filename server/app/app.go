@@ -13,6 +13,7 @@ import (
 	"pastebin/internal/auth"
 	"pastebin/internal/database"
 	"pastebin/internal/handlers"
+	"pastebin/internal/metrics"
 	"pastebin/internal/repositories"
 	"pastebin/internal/services"
 )
@@ -65,7 +66,9 @@ func New() (*App, error) {
 	e.HideBanner = true
 	e.HidePort = true
 	e.Use(middleware.Recover())
-	e.Use(middleware.Logger())
+	e.Use(middleware.RequestLogger())
+
+	_ = metrics.PasteCreations
 
 	authMiddleware := auth.AuthMiddleware(jwtMgr)
 	handlerSet.RegisterRoutes(e, authMiddleware)

@@ -6,6 +6,7 @@ import (
 	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/repositories"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -68,6 +69,10 @@ func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAu
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to get paste by ID")
 		return nil, fmt.Errorf("unable to get paste by ID: %w", err)
+	}
+	if paste.BurnAfterRead {
+		p.pasteRepo.DeletePasteByID(ctx, pasteID)
+		return nil, fmt.Errorf("paste is burn after read")
 	}
 	p.analyticsSvc.IncrementViews(ctx, pasteID)
 
@@ -157,6 +162,46 @@ func (p *PasteService) GetPasteBySlug(ctx context.Context, slug, password string
 		p.logger.Error().Err(err).Msg("failed to get paste by slug")
 		return nil, fmt.Errorf("unable to get paste by slug: %w", err)
 	}
+	if paste.BurnAfterRead {
+		p.pasteRepo.DeletePasteByID(ctx, paste.ID)
+		return nil, fmt.Errorf("paste is burn after read")
+	}
+	
 	p.analyticsSvc.IncrementViews(ctx, paste.ID)
 	return paste, nil
+}
+
+func (p *PasteService) ForkPaste(ctx context.Context, pasteID uuid.UUID) (*models.PasteOutput, error) {
+	userID, err := auth.GetUserIDFromContext(ctx)
+	if err != nil {
+		p.logger.Error().Err(err).Msg("failed to get userID from context")
+		return nil, fmt.Errorf("unable to get userID from context: %w", err)
+	}
+	paste, err := p.pasteRepo.GetPasteByID(ctx, pasteID, true, userID, "")
+	if err != nil {
+		p.logger.Error().Err(err).Msg("failed to get paste by ID")
+		return nil, fmt.Errorf("unable to get paste by ID: %w", err)
+	}
+	paste.ID = uuid.New()
+	paste.UserID = userID
+	paste.Title = paste.Title + " (fork)"
+	paste.Content = paste.Content + " (fork)"
+	paste.Language = paste.Language
+	paste.PasswordHash = paste.PasswordHash
+	paste.ExpiresAt = paste.ExpiresAt
+	paste.CreatedAt = time.Now()
+	paste.UpdatedAt = time.Now()
+	pasteInput := &models.PasteInput{
+		Title:     paste.Title,
+		Content:   paste.Content,
+		Language:  paste.Language,
+		Password:  "",
+		ExpiresIn: "7d",
+	}
+	pasteOutput, err := p.pasteRepo.CreatePaste(ctx, userID, pasteInput)
+	if err != nil {
+		p.logger.Error().Err(err).Msg("failed to create forked paste")
+		return nil, fmt.Errorf("unable to create forked paste: %w", err)
+	}
+	return pasteOutput, nil
 }
