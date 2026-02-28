@@ -60,13 +60,15 @@ func New() (*App, error) {
 	pasteHandler := handlers.NewPasteHandler(pasteSvc, logger)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsSvc, logger)
 	profileHandler := handlers.NewProfileHandler(profileSvc, &logger)
-	handlerSet := handlers.NewHandlers(authHandler, pasteHandler, analyticsHandler, profileHandler)
+	healthHandler := handlers.NewHealthHandler(logger, db)
+	handlerSet := handlers.NewHandlers(authHandler, pasteHandler, analyticsHandler, profileHandler, healthHandler)
 
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestLogger())
+	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(20)))
 
 	_ = metrics.PasteCreations
 

@@ -102,19 +102,29 @@ func (a *AnalyticsRepository) GetAnalyticsByURL(ctx context.Context, url string)
 }
 
 func (a *AnalyticsRepository) GetAllAnalytics(ctx context.Context, order string, limit int, offset int) ([]models.Analytics, error) {
-	// ORDER BY cannot use parameters, so we need to validate and use string interpolation carefully
-	// Only allow safe column names
 	allowedOrders := map[string]string{
 		"created_at": "created_at",
 		"updated_at": "updated_at",
 		"views":      "views",
 	}
-	orderBy := "created_at DESC" // default
+	orderBy := "created_at DESC"
 	if orderCol, ok := allowedOrders[order]; ok {
 		orderBy = orderCol + " DESC"
 	}
-	query := fmt.Sprintf(`SELECT * FROM pastes_analytics ORDER BY %s LIMIT $1 OFFSET $2`, orderBy)
-	rows, err := a.db.Query(ctx, query, limit, offset)
+
+	builder := sq.Select("*").
+		From("pastes_analytics").
+		OrderBy(orderBy).
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
+
+	queryStr, args, err := builder.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := a.db.Query(ctx, queryStr, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all analytics: %w", err)
 	}
@@ -127,19 +137,31 @@ func (a *AnalyticsRepository) GetAllAnalytics(ctx context.Context, order string,
 }
 
 func (a *AnalyticsRepository) GetAllAnalyticsByUser(ctx context.Context, userID uuid.UUID, order string, limit, offset int) ([]models.Analytics, error) {
-	// ORDER BY cannot use parameters, so we need to validate and use string interpolation carefully
-	// Only allow safe column names
 	allowedOrders := map[string]string{
 		"created_at": "a.created_at",
 		"updated_at": "a.updated_at",
 		"views":      "a.views",
 	}
-	orderBy := "a.created_at DESC" // default
+	orderBy := "a.created_at DESC"
 	if orderCol, ok := allowedOrders[order]; ok {
 		orderBy = orderCol + " DESC"
 	}
-	query := fmt.Sprintf(`SELECT a.* FROM pastes_analytics a JOIN pastes p ON a.paste_id = p.id WHERE p.user_id = $1 ORDER BY %s LIMIT $2 OFFSET $3`, orderBy)
-	rows, err := a.db.Query(ctx, query, userID, limit, offset)
+
+	builder := sq.Select("a.*").
+		From("pastes_analytics a").
+		Join("pastes p ON a.paste_id = p.id").
+		Where(sq.Eq{"p.user_id": userID}).
+		OrderBy(orderBy).
+		Limit(uint64(limit)).
+		Offset(uint64(offset)).
+		PlaceholderFormat(sq.Dollar)
+
+	queryStr, args, err := builder.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build query: %w", err)
+	}
+
+	rows, err := a.db.Query(ctx, queryStr, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all analytics by user: %w", err)
 	}

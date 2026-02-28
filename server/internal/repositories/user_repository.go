@@ -86,7 +86,7 @@ func (u *UserRepository) UpdateUser(ctx context.Context, user *models.User) erro
 		return fmt.Errorf("unable to begin transaction :%w", err)
 	}
 	defer tx.Rollback(ctx)
-	_, err = tx.Exec(ctx, query, user.ID, user.Name, user.Email, user.PasswordHash)
+	_, err = tx.Exec(ctx, query, user.ID, user.Name, user.Email, user.PasswordHash, user.IsVerified)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}

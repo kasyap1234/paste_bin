@@ -6,7 +6,6 @@ import (
 	"pastebin/internal/auth"
 	"pastebin/internal/models"
 	"pastebin/internal/repositories"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -71,8 +70,10 @@ func (p *PasteService) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAu
 		return nil, fmt.Errorf("unable to get paste by ID: %w", err)
 	}
 	if paste.BurnAfterRead {
-		p.pasteRepo.DeletePasteByID(ctx, pasteID)
-		return nil, fmt.Errorf("paste is burn after read")
+		if err := p.pasteRepo.DeletePasteByID(ctx, pasteID); err != nil {
+			p.logger.Warn().Err(err).Msg("failed to delete burn-after-read paste")
+		}
+		return paste, nil
 	}
 	p.analyticsSvc.IncrementViews(ctx, pasteID)
 
@@ -163,40 +164,31 @@ func (p *PasteService) GetPasteBySlug(ctx context.Context, slug, password string
 		return nil, fmt.Errorf("unable to get paste by slug: %w", err)
 	}
 	if paste.BurnAfterRead {
-		p.pasteRepo.DeletePasteByID(ctx, paste.ID)
-		return nil, fmt.Errorf("paste is burn after read")
+		if err := p.pasteRepo.DeletePasteByID(ctx, paste.ID); err != nil {
+			p.logger.Warn().Err(err).Msg("failed to delete burn-after-read paste")
+		}
+		return paste, nil
 	}
-	
+
 	p.analyticsSvc.IncrementViews(ctx, paste.ID)
 	return paste, nil
 }
 
-func (p *PasteService) ForkPaste(ctx context.Context, pasteID uuid.UUID) (*models.PasteOutput, error) {
+func (p *PasteService) ForkPaste(ctx context.Context, pasteID uuid.UUID, password string) (*models.PasteOutput, error) {
 	userID, err := auth.GetUserIDFromContext(ctx)
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to get userID from context")
 		return nil, fmt.Errorf("unable to get userID from context: %w", err)
 	}
-	paste, err := p.pasteRepo.GetPasteByID(ctx, pasteID, true, userID, "")
+	paste, err := p.pasteRepo.GetPasteByID(ctx, pasteID, true, userID, password)
 	if err != nil {
 		p.logger.Error().Err(err).Msg("failed to get paste by ID")
 		return nil, fmt.Errorf("unable to get paste by ID: %w", err)
 	}
-	paste.ID = uuid.New()
-	paste.UserID = userID
-	paste.Title = paste.Title + " (fork)"
-	paste.Content = paste.Content + " (fork)"
-	paste.Language = paste.Language
-	paste.PasswordHash = paste.PasswordHash
-	paste.ExpiresAt = paste.ExpiresAt
-	paste.CreatedAt = time.Now()
-	paste.UpdatedAt = time.Now()
 	pasteInput := &models.PasteInput{
-		Title:     paste.Title,
-		Content:   paste.Content,
-		Language:  paste.Language,
-		Password:  "",
-		ExpiresIn: "7d",
+		Title:    paste.Title + " (fork)",
+		Content:  paste.Content,
+		Language: paste.Language,
 	}
 	pasteOutput, err := p.pasteRepo.CreatePaste(ctx, userID, pasteInput)
 	if err != nil {

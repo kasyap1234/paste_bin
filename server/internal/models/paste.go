@@ -25,6 +25,7 @@ type PasteOutput struct {
 	PasswordHash  string     `json:"-" db:"password"`
 	Language      string     `json:"language" db:"language"`
 	URL           string     `json:"url" db:"url"`
+	Slug          string     `json:"slug" db:"slug"`
 	Views         int        `json:"views" db:"views"`
 	BurnAfterRead bool       `json:"burn_after_read,omitempty" db:"burn_after_read"`
 	ExpiresAt     *time.Time `json:"expires_at,omitempty" db:"expires_at"`

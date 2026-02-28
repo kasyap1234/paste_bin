@@ -13,6 +13,7 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 )
@@ -30,12 +31,10 @@ func NewPasteRepository(db *pgxpool.Pool, logger zerolog.Logger) *PasteRepositor
 }
 
 func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pasteInput *models.PasteInput) (*models.PasteOutput, error) {
-	query := `INSERT INTO pastes (user_id, title, is_private, content, language, url, password, expires_at, burn_after_read) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 	title := pasteInput.Title
 	if title == "" {
 		title = "Untitled"
 	}
-	urlSlug := uuid.New().String()[:8]
 	var isPrivate bool
 	var burnAfterRead bool
 	var passwordHash string
@@ -43,7 +42,6 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	if baseURL == "" {
 		baseURL = "http://localhost:8080"
 	}
-	url := baseURL + "/p/" + urlSlug
 	if pasteInput.Password == "" {
 		isPrivate = false
 		passwordHash = ""
@@ -60,33 +58,46 @@ func (p *PasteRepository) CreatePaste(ctx context.Context, userID uuid.UUID, pas
 	language := pasteInput.Language
 	content := pasteInput.Content
 	expiresAt := pasteInput.ExpiresAt
-	tx, err := p.db.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, query, userID, title, isPrivate, content, language, url, passwordHash, expiresAt, burnAfterRead)
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert paste: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
+	insertQuery := `INSERT INTO pastes (user_id, title, is_private, content, language, url, password, expires_at, burn_after_read, slug) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
-	// Retrieve the created paste to return it
-	getQuery := `SELECT id, user_id, title, is_private, content, password, language, url, expires_at, created_at, updated_at, 0 as views FROM pastes WHERE url = $1`
-	row, err := p.db.Query(ctx, getQuery, url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve created paste: %w", err)
-	}
-	defer row.Close()
-	paste, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[models.PasteOutput])
-	if err != nil {
-		return nil, fmt.Errorf("failed to collect created paste: %w", err)
-	}
+	const maxRetries = 5
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		slug := uuid.New().String()[:8]
+		url := baseURL + "/p/" + slug
 
-	return &paste, nil
+		tx, err := p.db.Begin(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		}
+
+		_, err = tx.Exec(ctx, insertQuery, userID, title, isPrivate, content, language, url, passwordHash, expiresAt, burnAfterRead, slug)
+		if err != nil {
+			tx.Rollback(ctx)
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				continue // slug collision, retry
+			}
+			return nil, fmt.Errorf("failed to insert paste: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		}
+
+		getQuery := `SELECT id, user_id, title, is_private, content, password, language, url, slug, burn_after_read, expires_at, created_at, updated_at, 0 as views FROM pastes WHERE slug = $1`
+		row, err := p.db.Query(ctx, getQuery, slug)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve created paste: %w", err)
+		}
+		defer row.Close()
+		paste, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[models.PasteOutput])
+		if err != nil {
+			return nil, fmt.Errorf("failed to collect created paste: %w", err)
+		}
+
+		return &paste, nil
+	}
+	return nil, fmt.Errorf("failed to generate unique slug after %d attempts", maxRetries)
 }
 
 func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, patchInput *models.PatchPaste) error {
@@ -159,7 +170,7 @@ func (p *PasteRepository) UpdatePaste(ctx context.Context, pasteID uuid.UUID, pa
 }
 
 func (p *PasteRepository) GetPasteByID(ctx context.Context, pasteID uuid.UUID, isAuthenticated bool, userID uuid.UUID, password string) (*models.PasteOutput, error) {
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a.paste_id WHERE p.id = $1`
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.slug, p.burn_after_read, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a.paste_id WHERE p.id = $1`
 	row, err := p.db.Query(ctx, query, pasteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query paste: %w", err)
@@ -215,7 +226,7 @@ func (p *PasteRepository) GetAllPastes(ctx context.Context, userID uuid.UUID, li
 	}
 
 	// Then get the paginated results
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.language, p.url, p.password, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.language, p.url, p.slug, p.password, p.burn_after_read, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views
 		FROM pastes p
 		LEFT JOIN pastes_analytics a ON p.id = a.paste_id
 		WHERE p.user_id = $1 AND (p.expires_at IS NULL OR p.expires_at > NOW())
@@ -271,9 +282,8 @@ func (p *PasteRepository) DeletePasteByID(ctx context.Context, pasteID uuid.UUID
 }
 
 func (p *PasteRepository) GetPasteBySlug(ctx context.Context, slug string, password string) (*models.PasteOutput, error) {
-	// Query for paste where URL ends with /p/slug
-	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a.paste_id WHERE p.url LIKE $1`
-	row, err := p.db.Query(ctx, query, "%/p/"+slug)
+	query := `SELECT p.id, p.user_id, p.title, p.is_private, p.content, p.password, p.language, p.url, p.slug, p.burn_after_read, p.expires_at, p.created_at, p.updated_at, COALESCE(a.views, 0) as views FROM pastes p LEFT JOIN pastes_analytics a ON p.id = a.paste_id WHERE p.slug = $1`
+	row, err := p.db.Query(ctx, query, slug)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query paste by slug: %w", err)
 	}
@@ -321,7 +331,9 @@ func (p *PasteRepository) FilterPastes(ctx context.Context, userID uuid.UUID, pa
 		"p.content",
 		"p.language",
 		"p.url",
+		"p.slug",
 		"p.password",
+		"p.burn_after_read",
 		"p.expires_at",
 		"p.created_at",
 		"p.updated_at",

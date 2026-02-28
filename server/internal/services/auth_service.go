@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rs/zerolog"
 )
 
@@ -31,19 +32,12 @@ func NewAuthService(authRepo *repositories.AuthRepository, userRepo *repositorie
 }
 
 func (a *AuthService) Register(ctx context.Context, registerInput *models.RegisterInput) error {
-	// check if user already exists
-	// only proceed if user does not exists
-	ok, err := a.userRepo.ExistsUser(ctx, registerInput.Email)
-	if err != nil {
-		a.logger.Error().Err(err).Msg("error checking existing user")
-		return fmt.Errorf("error checking existing user: %w", err)
-	}
-
-	if ok {
-		return fmt.Errorf("user already exists with email: %s", registerInput.Email)
-	}
 	user, regErr := a.authRepo.Register(ctx, registerInput)
 	if regErr != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(regErr, &pgErr) && pgErr.Code == "23505" {
+			return fmt.Errorf("user already exists with email: %s", registerInput.Email)
+		}
 		a.logger.Error().Err(regErr).Msg("error registering user")
 		return regErr
 	}

@@ -23,5 +23,9 @@ func InitDB() (pool *pgxpool.Pool, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database pool: %w", err)
 	}
-	return pool, err
+	if err := pool.Ping(context.Background()); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+	return pool, nil
 }

@@ -357,9 +357,25 @@ func (p *PasteHandler) ForkPaste(c echo.Context) error {
 	if err != nil {
 		return utils.SendError(c, http.StatusBadRequest, "invalid paste id")
 	}
+
+	var body struct {
+		Password string `json:"password"`
+	}
+	c.Bind(&body)
+	password := body.Password
+	if password == "" {
+		password = c.QueryParam("password")
+	}
+
 	ctx := c.Request().Context()
-	paste, err := p.pasteSvc.ForkPaste(ctx, pasteID)
+	paste, err := p.pasteSvc.ForkPaste(ctx, pasteID, password)
 	if err != nil {
+		if errors.Is(err, pasteerrors.ErrPasswordRequired) {
+			return utils.SendError(c, http.StatusBadRequest, "password required")
+		}
+		if errors.Is(err, pasteerrors.ErrInvalidPassword) {
+			return utils.SendError(c, http.StatusUnauthorized, "invalid password")
+		}
 		return utils.SendError(c, http.StatusInternalServerError, "failed to fork paste")
 	}
 	return utils.SendSuccess(c, http.StatusCreated, paste, "paste forked successfully")
